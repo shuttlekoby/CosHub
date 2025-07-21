@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "cd Coshub && npm run dev",
-    "build": "cd Coshub && npm run build",
+    "dev": "cd Coshub && npm install && npm run dev",
+    "build": "cd Coshub && npm install && npm run build",
     "start": "cd Coshub && npm run start",
     "lint": "cd Coshub && npm run lint"
   },
