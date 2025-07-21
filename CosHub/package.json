@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cd Coshub && npm install && npm run dev",
-    "build": "cd Coshub && npm install && npm run build",
+    "build": "cd Coshub && npm install && npm run build && cp -r .next ../",
     "start": "cd Coshub && npm run start",
     "lint": "cd Coshub && npm run lint"
   },
