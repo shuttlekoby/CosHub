@@ -8,8 +8,8 @@ import { Avatar } from "@heroui/avatar";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { Spinner } from "@heroui/spinner";
 import { Chip } from "@heroui/chip";
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, HeartIcon, BookmarkIcon } from "@/components/icons";
-import { getCosplayers, CosplayerData, MediaFile } from "@/lib/cosplayerStore";
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, HeartIcon, BookmarkIcon } from "../../../components/icons";
+import { getCosplayers, CosplayerData, MediaFile } from "../../../lib/cosplayerStore";
 
 export default function CosplayerGalleryPage() {
   const params = useParams();

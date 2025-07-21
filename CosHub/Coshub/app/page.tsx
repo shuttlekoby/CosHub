@@ -8,9 +8,9 @@ import { Button } from "@heroui/button";
 import { Tabs, Tab } from "@heroui/tabs";
 import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
-import { SearchIcon } from "@/components/icons";
-import { CosplayerData, getCosplayers, toggleFollow } from "@/lib/cosplayerStore";
-import { GalleryIcon, TrendIcon, HeartIcon, BookmarkIcon } from "@/components/tab-icons";
+import { SearchIcon } from "../components/icons";
+import { CosplayerData, getCosplayers, toggleFollow } from "../lib/cosplayerStore";
+import { GalleryIcon, TrendIcon, HeartIcon, BookmarkIcon } from "../components/tab-icons";
 
 
 

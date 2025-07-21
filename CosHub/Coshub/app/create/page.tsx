@@ -13,8 +13,8 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure
 import { Pagination } from "@heroui/pagination";
 import { Progress } from "@heroui/progress";
 import { Chip } from "@heroui/chip";
-import { title, subtitle } from "@/components/primitives";
-import { SearchIcon, HeartIcon, DownloadIcon } from "@/components/icons";
+import { title, subtitle } from "../../components/primitives";
+import { SearchIcon, HeartIcon, DownloadIcon } from "../../components/icons";
 import { 
   CosplayerData, 
   MediaFile, 
@@ -24,7 +24,7 @@ import {
   updateDownloadStatus,
   addMediaToCosplayer,
   updateCosplayerAvatar
-} from "@/lib/cosplayerStore";
+} from "../../lib/cosplayerStore";
 
 export default function CreatePage() {
   const [searchQuery, setSearchQuery] = useState("");
