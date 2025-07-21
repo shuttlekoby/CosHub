@@ -1,4 +1,13 @@
 {
+  "name": "coshub-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd Coshub && npm run dev",
+    "build": "cd Coshub && npm run build",
+    "start": "cd Coshub && npm run start",
+    "lint": "cd Coshub && npm run lint"
+  },
   "dependencies": {
     "firebase": "^12.0.0"
   }
