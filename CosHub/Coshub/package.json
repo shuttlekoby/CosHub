@@ -2,6 +2,7 @@
   "name": "next-app-template",
   "version": "0.0.1",
   "private": true,
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -15,6 +16,7 @@
     "@heroui/chip": "^2.2.19",
     "@heroui/code": "2.2.17",
     "@heroui/divider": "^2.2.16",
+    "@heroui/spinner": "^2.2.18",
     "@heroui/image": "^2.2.15",
     "@heroui/input": "2.4.24",
     "@heroui/kbd": "2.2.18",
