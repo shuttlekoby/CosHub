@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "cd Coshub && pnpm install && pnpm run build",
-  "devCommand": "cd Coshub && pnpm dev",
-  "installCommand": "cd Coshub && pnpm install",
-  "outputDirectory": "Coshub/.next",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "installCommand": "npm install -g pnpm && pnpm install",
+  "buildCommand": "pnpm run build",
+  "devCommand": "pnpm run dev",
+  "outputDirectory": ".next",
+  "functions": {
+    "app/api/**/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  }
 } 
