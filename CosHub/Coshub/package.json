@@ -16,7 +16,6 @@
     "@heroui/chip": "^2.2.19",
     "@heroui/code": "2.2.17",
     "@heroui/divider": "^2.2.16",
-    "@heroui/spinner": "^2.2.18",
     "@heroui/image": "^2.2.15",
     "@heroui/input": "2.4.24",
     "@heroui/kbd": "2.2.18",
@@ -29,6 +28,7 @@
     "@heroui/select": "^2.4.24",
     "@heroui/snippet": "2.2.24",
     "@heroui/spacer": "^2.2.17",
+    "@heroui/spinner": "^2.2.18",
     "@heroui/switch": "2.2.21",
     "@heroui/system": "2.4.19",
     "@heroui/tabs": "^2.2.20",
@@ -44,6 +44,7 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@eslint/compat": "^1.3.1",
     "@next/eslint-plugin-next": "15.3.4",
     "@react-types/shared": "3.30.0",
     "@tailwindcss/postcss": "4.1.11",
