@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "cd Coshub && npm install && npm run dev",
-    "build": "cd Coshub && npm install && npm run build && cp -r .next ../",
-    "start": "cd Coshub && npm run start",
-    "lint": "cd Coshub && npm run lint"
+    "dev": "cd Coshub && pnpm install && pnpm run dev",
+    "build": "cd Coshub && pnpm install && pnpm run build",
+    "start": "cd Coshub && pnpm run start",
+    "lint": "cd Coshub && pnpm run lint"
   },
+  "packageManager": "pnpm@10.0.0",
   "dependencies": {
     "firebase": "^12.0.0"
   }
