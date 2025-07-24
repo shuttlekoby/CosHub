@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 const isProduction = process.env.NEXT_PUBLIC_SITE_ENV === "production";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL!),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: {
     template: "%s | Schema UI Starter",
     default: "Sanity Next.js Website | Schema UI Starter",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     images: [
       {
-        url: `${process.env.NEXT_PUBLIC_SITE_URL}/images/og-image.jpg`,
+        url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/images/og-image.jpg`,
         width: 1200,
         height: 630,
       },

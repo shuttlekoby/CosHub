@@ -1,13 +1,17 @@
 {
-  "version": 2,
-  "framework": "nextjs",
-  "installCommand": "npm install -g pnpm && pnpm install",
-  "buildCommand": "pnpm run build",
-  "devCommand": "pnpm run dev",
-  "outputDirectory": ".next",
-  "functions": {
-    "app/api/**/*.ts": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  "deploymentProtection": {
+    "enabled": false
+  },
+  "public": true,
+  "regions": ["hnd1"],
+  "build": {
+    "command": "next build"
+  },
+  "dev": {
+    "command": "next dev --port $PORT"
+  },
+  "install": {
+    "command": "pnpm install"
+  },
+  "outputDirectory": ".next"
 } 

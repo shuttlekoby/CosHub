@@ -47,6 +47,8 @@ export interface DownloadStatus {
   progress: number;
   message: string;
   error?: string;
+  suggestions?: string[];
+  additionalInfo?: string;
 }
 
 // ローカルストレージのキー

@@ -8,13 +8,17 @@ import { visionTool } from "@sanity/vision";
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
 import { presentationTool } from "sanity/presentation";
+import { assist } from "@sanity/assist";
+import { markdownSchema } from "sanity-plugin-markdown";
+import { imageGen } from "sanity-plugin-image-gen";
 
 // Go to https://www.sanity.io/docs/api-versioning to learn how API versioning works
 import { apiVersion, dataset, projectId } from "./sanity/env";
 import { schema } from "./sanity/schema";
-import { resolve } from "@/sanity/presentation/resolve";
+import { resolve } from "./sanity/presentation/resolve";
 import { structure } from "./sanity/structure";
 import { codeInput } from "@sanity/code-input";
+import { generateBlogPostAction } from "./sanity/schemas/actions/generate-blog-post-action";
 
 // Define the actions that should be available for singleton documents
 const singletonActions = new Set([
@@ -42,10 +46,18 @@ export default defineConfig({
   document: {
     // For singleton types, filter out actions that are not explicitly included
     // in the `singletonActions` list defined above
-    actions: (input, context) =>
-      singletonTypes.has(context.schemaType)
-        ? input.filter(({ action }) => action && singletonActions.has(action))
-        : input,
+    actions: (input, context) => {
+      if (singletonTypes.has(context.schemaType)) {
+        return input.filter(({ action }) => action && singletonActions.has(action));
+      }
+      
+      // Add custom blog post generation action for post documents
+      if (context.schemaType === "post") {
+        return [...input, generateBlogPostAction];
+      }
+      
+      return input;
+    },
   },
   plugins: [
     structureTool({ structure }),
@@ -61,5 +73,10 @@ export default defineConfig({
     // https://www.sanity.io/docs/the-vision-plugin
     visionTool({ defaultApiVersion: apiVersion }),
     codeInput(),
+    assist(),
+    markdownSchema(),
+    imageGen({
+      apiEndpoint: "http://localhost:3000/api/generate-image",
+    }),
   ],
 });

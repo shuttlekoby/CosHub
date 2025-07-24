@@ -53,7 +53,7 @@ export default defineType({
     defineField({
       name: "content",
       title: "Content",
-      type: "blockContent",
+      type: "block-content",
       group: "content",
     }),
     defineField({

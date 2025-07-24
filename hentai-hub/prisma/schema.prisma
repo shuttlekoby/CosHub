@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Article {
+  id            Int      @id @default(autoincrement())
+  url           String   @unique
+  title         String
+  content       String
+  published_date String?
+  image_url     String?
+  scraped_at    DateTime @default(now())
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  
+  // カテゴリとタグ
+  category      String?
+  tags          Tag[]
+  
+  // SEO関連
+  meta_description String?
+  
+  @@map("articles")
+}
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  articles  Article[]
+  created_at DateTime @default(now())
+  
+  @@map("tags")
+}
+
+model ScrapingSource {
+  id           Int      @id @default(autoincrement())
+  name         String
+  base_url     String
+  is_active    Boolean  @default(true)
+  last_scraped DateTime?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  @@map("scraping_sources")
+}

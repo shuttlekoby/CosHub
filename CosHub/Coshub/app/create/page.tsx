@@ -176,8 +176,9 @@ export default function CreatePage() {
           const updatedStatus: DownloadStatus = {
             isDownloading: true,
             progress: newProgress,
-            message: newProgress < 50 ? 'ツイートを取得中...' : 
-                    newProgress < 80 ? '画像をダウンロード中...' : 'WebPに変換中...'
+            message: newProgress < 30 ? 'ツイートを取得中...' : 
+                    newProgress < 60 ? '画像をダウンロード中...' : 
+                    newProgress < 90 ? 'WebPに変換中...' : '最終処理中...'
           };
           updateDownloadStatus(username, updatedStatus);
           setCosplayers(getCosplayers());
@@ -201,6 +202,11 @@ export default function CreatePage() {
       });
 
       clearInterval(progressInterval);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
 
       if (data.success) {
@@ -217,25 +223,89 @@ export default function CreatePage() {
         const successStatus: DownloadStatus = {
           isDownloading: false,
           progress: 100,
-          message: `${data.downloadedCount}個のファイルをダウンロード完了`
+          message: data.source === 'sample' 
+            ? `${data.downloadedCount}個のサンプル画像を生成しました`
+            : `${data.downloadedCount}個のファイルをダウンロード完了`,
+          additionalInfo: data.source === 'twmd' ? '実際のTwitter画像' :
+                         data.source === 'manual' ? '手動保存画像' :
+                         'サンプルデータ'
         };
         updateDownloadStatus(username, successStatus);
         
         // ステートを更新
         setCosplayers(getCosplayers());
+
+        // 成功通知
+        if (data.source === 'sample') {
+          console.log(`📝 ${username}: サンプルデータを生成しました`);
+        } else {
+          console.log(`✅ ${username}: 実際のデータをダウンロードしました`);
+        }
       } else {
-        throw new Error(data.error || 'ダウンロードに失敗しました');
+        throw new Error(data.message || 'ダウンロードに失敗しました');
       }
 
     } catch (error) {
+      console.error(`❌ ${username} ダウンロードエラー:`, error);
+      
+      // エラーの種類を判定してユーザーフレンドリーなメッセージを作成
+      let errorMessage = 'エラーが発生しました';
+      let suggestions: string[] = [];
+
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        errorMessage = 'ネットワーク接続エラー';
+        suggestions = [
+          'インターネット接続を確認してください',
+          'VPNを使用している場合は一時的に無効にしてください',
+          'ページを再読み込みして再試行してください'
+        ];
+      } else if (error instanceof Error) {
+        if (error.message.includes('user not found')) {
+          errorMessage = 'ユーザーが見つかりません';
+          suggestions = [
+            'ユーザー名のスペルを確認してください',
+            'ユーザーが存在するかTwitterで確認してください',
+            '@マークは不要です'
+          ];
+        } else if (error.message.includes('Rate limit')) {
+          errorMessage = 'アクセス制限に達しました';
+          suggestions = [
+            '1分ほど待ってから再試行してください',
+            '一度に大量のリクエストを送信しないでください'
+          ];
+        } else if (error.message.includes('Authentication')) {
+          errorMessage = '認証エラー';
+          suggestions = [
+            'プライベートアカウントの場合はアクセスできません',
+            'ページを再読み込みして再試行してください'
+          ];
+        } else {
+          errorMessage = error.message;
+          suggestions = [
+            'ページを再読み込みして再試行してください',
+            '問題が継続する場合は開発者にお問い合わせください'
+          ];
+        }
+      }
+
+      // エラー状態を更新
       const errorStatus: DownloadStatus = {
         isDownloading: false,
         progress: 0,
-        message: 'エラー',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        message: errorMessage,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        suggestions
       };
       updateDownloadStatus(username, errorStatus);
       setCosplayers(getCosplayers());
+
+      // 詳細ログ（開発環境のみ）
+      if (process.env.NODE_ENV === 'development') {
+        console.group(`🐛 ${username} 詳細エラー情報`);
+        console.error('Error object:', error);
+        console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+        console.groupEnd();
+      }
     }
   };
 
@@ -654,23 +724,65 @@ export default function CreatePage() {
                   
                   {/* ダウンロード状況 */}
                   {cosplayer.downloadStatus && (
-                    <div className="w-full mt-4 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">{cosplayer.downloadStatus.message}</span>
-                        <Chip 
-                          size="sm" 
-                          color={cosplayer.downloadStatus.error ? "danger" : 
-                                cosplayer.downloadStatus.isDownloading ? "warning" : "success"}
-                        >
-                          {cosplayer.media.length}個
-                        </Chip>
-                      </div>
-                      {cosplayer.downloadStatus.isDownloading && (
-                        <Progress 
-                          value={cosplayer.downloadStatus.progress} 
-                          color="primary" 
-                          size="sm"
-                        />
+                    <div className="w-full mt-4 space-y-3">
+                      {cosplayer.downloadStatus.isDownloading ? (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm">{cosplayer.downloadStatus.message}</span>
+                            <Chip size="sm" color="warning">
+                              {cosplayer.downloadStatus.progress}%
+                            </Chip>
+                          </div>
+                          <Progress 
+                            value={cosplayer.downloadStatus.progress} 
+                            color="primary" 
+                            size="sm"
+                          />
+                        </div>
+                      ) : cosplayer.downloadStatus.error ? (
+                        <div className="bg-danger-50 dark:bg-danger-950/50 p-3 rounded-lg border border-danger-200 dark:border-danger-800 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-danger-700 dark:text-danger-300 font-medium">
+                              ❌ {cosplayer.downloadStatus.message}
+                            </span>
+                            <Chip size="sm" color="danger">
+                              エラー
+                            </Chip>
+                          </div>
+                          
+                          {cosplayer.downloadStatus.suggestions && cosplayer.downloadStatus.suggestions.length > 0 && (
+                            <div className="mt-2">
+                              <div className="text-xs font-medium text-danger-700 dark:text-danger-300 mb-1">
+                                💡 解決方法:
+                              </div>
+                              <ul className="text-xs text-danger-600 dark:text-danger-400 space-y-1">
+                                {cosplayer.downloadStatus.suggestions.map((suggestion, index) => (
+                                  <li key={index} className="flex items-start gap-1">
+                                    <span className="flex-shrink-0 mt-0.5">•</span>
+                                    <span>{suggestion}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-success-50 dark:bg-success-950/50 p-3 rounded-lg border border-success-200 dark:border-success-800">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-success-700 dark:text-success-300 font-medium">
+                              ✅ {cosplayer.downloadStatus.message}
+                            </span>
+                            <Chip size="sm" color="success">
+                              {cosplayer.media.length}個
+                            </Chip>
+                          </div>
+                          
+                          {cosplayer.downloadStatus.additionalInfo && (
+                            <div className="text-xs text-success-600 dark:text-success-400 mt-2">
+                              📊 データソース: {cosplayer.downloadStatus.additionalInfo}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
