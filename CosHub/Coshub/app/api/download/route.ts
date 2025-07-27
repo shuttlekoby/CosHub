@@ -17,19 +17,112 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // テストモードかどうかをチェック
+    const isTestMode = options?.test === true;
+
+    // 認証情報を読み込み
+    let authToken = '';
+    let ct0 = '';
+    
+    try {
+      const authData = await fs.readFile(path.join(process.cwd(), 'data', 'auth.json'), 'utf-8');
+      const auth = JSON.parse(authData);
+      authToken = auth.auth_token || '';
+      ct0 = auth.ct0 || '';
+    } catch (error) {
+      return NextResponse.json(
+        { error: '認証情報が設定されていません。/auth ページで設定してください。' },
+        { status: 401 }
+      );
+    }
+
+    if (!authToken || !ct0) {
+      return NextResponse.json(
+        { error: '認証情報が不完全です。/auth ページで再設定してください。' },
+        { status: 401 }
+      );
+    }
+
+    // テストモードの場合は認証確認のみで終了
+    if (isTestMode) {
+      return NextResponse.json({
+        success: true,
+        message: '認証情報が正常に設定されています',
+        test: true,
+        username,
+        authStatus: 'verified'
+      });
+    }
+
     // 正しい絶対パスを使用
-    const twmdPath = path.join(process.cwd(), '..', 'twmd');
+    const twmdPath = path.join(process.cwd(), '..', 'twitter-media-downloader', 'twmd');
     const convertScriptPath = path.join(process.cwd(), '..', 'convert_to_webp.py');
     const downloadsPath = path.join(process.cwd(), 'public', 'downloads');
     const userDir = path.join(downloadsPath, username);
+    const twmdDir = path.join(process.cwd(), '..', 'twitter-media-downloader');
+    const cookiesPath = path.join(twmdDir, 'twmd_cookies.json');
+    
+    console.log('Debug info:');
+    console.log('- twmdPath:', twmdPath);
+    console.log('- downloadsPath:', downloadsPath);
+    console.log('- userDir:', userDir);
+    console.log('- cookiesPath:', cookiesPath);
     
     // ダウンロードディレクトリの作成
     await fs.mkdir(userDir, { recursive: true });
 
+    // twmdバイナリの存在確認
+    try {
+      await fs.access(twmdPath);
+      console.log('✅ twmdバイナリが見つかりました');
+    } catch (error) {
+      console.error('❌ twmdバイナリが見つかりません:', twmdPath);
+      return NextResponse.json(
+        { error: 'twmdバイナリが見つかりません。セットアップを確認してください。' },
+        { status: 500 }
+      );
+    }
+
+    // クッキーファイルを作成（Go http.Cookie JSON形式でtwmdが使用）
+    const expiresTime = new Date();
+    expiresTime.setFullYear(expiresTime.getFullYear() + 1); // 1年後
+    
+    const cookies = [
+      {
+        Name: "auth_token",
+        Value: authToken,
+        Path: "/",
+        Domain: ".twitter.com",
+        Expires: expiresTime.toISOString(),
+        HttpOnly: true,
+        Secure: true
+      },
+      {
+        Name: "ct0",
+        Value: ct0,
+        Path: "/",
+        Domain: ".twitter.com", 
+        Expires: expiresTime.toISOString(),
+        HttpOnly: true,
+        Secure: true
+      }
+    ];
+    
+    try {
+      await fs.writeFile(cookiesPath, JSON.stringify(cookies, null, 2));
+      console.log('認証情報をJSON形式のクッキーファイルに書き込みました');
+    } catch (error) {
+      console.error('クッキーファイル作成エラー:', error);
+      return NextResponse.json(
+        { error: 'クッキーファイルの作成に失敗しました' },
+        { status: 500 }
+      );
+    }
+
     // デフォルトオプション
     const defaultOptions = {
       imageOnly: true,
-      count: 50,
+      count: 200, // 画像取得数を50から200に増加
       highQuality: true,
       ...options
     };
@@ -38,6 +131,9 @@ export async function POST(request: NextRequest) {
     const args = [];
     args.push(`-u ${username}`);
     args.push(`-o "${downloadsPath}"`);
+    args.push('-C'); // クッキーを使用
+    args.push('-M'); // メディアツイートのみ（リツイート除外）
+    args.push('-U'); // 更新モード（不足分のみダウンロード）
     
     if (defaultOptions.imageOnly) {
       args.push('-i'); // 画像のみダウンロード
@@ -51,30 +147,36 @@ export async function POST(request: NextRequest) {
       args.push('-s large'); // 大きいサイズ
     }
 
-    const command = `"${twmdPath}" ${args.join(' ')}`;
+    const command = `./twmd ${args.join(' ')}`;
 
-    console.log(`Executing: ${command}`);
+    console.log('🚀 実行コマンド:', command);
 
     // ダウンロード実行
     let stdout = '';
     let stderr = '';
+    let executionSuccess = false;
     
     try {
       const result = await execAsync(command, {
         timeout: 300000, // 5分のタイムアウト
-        cwd: process.cwd()
+        cwd: twmdDir
       });
       stdout = result.stdout;
       stderr = result.stderr;
+      executionSuccess = true;
+      console.log('✅ コマンド実行成功');
     } catch (execError: any) {
-      console.error('Command execution error:', execError);
+      console.error('❌ コマンド実行エラー:', execError);
+      console.error('- Exit code:', execError.code);
+      console.error('- Signal:', execError.signal);
       // エラーでも処理を続行（一部成功の場合もある）
       stdout = execError.stdout || '';
       stderr = execError.stderr || '';
     }
 
-    console.log('STDOUT:', stdout);
-    console.log('STDERR:', stderr);
+    console.log('📄 STDOUT:', stdout);
+    console.log('⚠️ STDERR:', stderr);
+    console.log('🎯 実行成功:', executionSuccess);
 
     // ダウンロードされたファイルをスキャン
     const imgDir = path.join(userDir, 'img');

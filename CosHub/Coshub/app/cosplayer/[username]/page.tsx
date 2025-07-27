@@ -8,8 +8,8 @@ import { Avatar } from "@heroui/avatar";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { Spinner } from "@heroui/spinner";
 import { Chip } from "@heroui/chip";
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, HeartIcon, BookmarkIcon } from "@/components/icons";
-import { getCosplayers, CosplayerData, MediaFile } from "@/lib/cosplayerStore";
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, HeartIcon, BookmarkIcon, TrashIcon } from "@/components/icons";
+import { getCosplayers, CosplayerData, MediaFile, removeCosplayer } from "@/lib/cosplayerStore";
 
 export default function CosplayerGalleryPage() {
   const params = useParams();
@@ -19,7 +19,9 @@ export default function CosplayerGalleryPage() {
   const [cosplayer, setCosplayer] = useState<CosplayerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isDeleteModalOpen, onOpen: onDeleteModalOpen, onClose: onDeleteModalClose } = useDisclosure();
   
   useEffect(() => {
     if (username) {
@@ -56,6 +58,83 @@ export default function CosplayerGalleryPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+  };
+
+  const handleDeleteCosplayer = async () => {
+    if (!cosplayer) return;
+    
+    try {
+      // ローカルストレージから削除
+      removeCosplayer(cosplayer.id);
+      
+      // ダウンロードされたファイルも削除する場合
+      const response = await fetch(`/api/cosplayer/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cosplayer.username })
+      });
+      
+      if (response.ok) {
+        alert('コスプレイヤーとダウンロードファイルを完全に削除しました');
+      } else {
+        alert('データは削除されましたが、ファイル削除でエラーが発生しました');
+      }
+    } catch (error) {
+      console.error('削除エラー:', error);
+      alert('削除に失敗しました');
+    }
+    
+    onDeleteModalClose();
+    router.push('/');
+  };
+
+  const handleDeleteImage = async (filename: string) => {
+    if (!cosplayer) return;
+    
+    // 削除中状態に追加
+    setDeletingImages(prev => new Set(prev).add(filename));
+    
+    try {
+      const response = await fetch('/api/cosplayer/delete-image', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          username: cosplayer.username, 
+          filename 
+        })
+      });
+      
+      if (response.ok) {
+        // ローカルストレージからも削除
+        const updatedCosplayer = { 
+          ...cosplayer, 
+          media: cosplayer.media.filter(media => media.filename !== filename) 
+        };
+        setCosplayer(updatedCosplayer);
+        
+        // ローカルストレージも更新
+        const cosplayers = getCosplayers();
+        const updatedCosplayers = cosplayers.map(c => 
+          c.id === cosplayer.id ? updatedCosplayer : c
+        );
+        localStorage.setItem('cosplayers', JSON.stringify(updatedCosplayers));
+        
+        console.log(`画像 ${filename} を削除しました`);
+      } else {
+        const error = await response.json();
+        alert(`画像削除に失敗しました: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('画像削除エラー:', error);
+      alert('画像削除に失敗しました');
+    } finally {
+      // 削除中状態から削除
+      setDeletingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(filename);
+        return newSet;
+      });
     }
   };
 
@@ -126,9 +205,19 @@ export default function CosplayerGalleryPage() {
                   <span><strong>{cosplayer.followers}</strong> フォロワー</span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-4">
                 <Chip color="secondary" variant="flat">{cosplayer.hashtag}</Chip>
                 <Chip color="primary" variant="flat">{cosplayer.media.length} 画像</Chip>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  color="danger"
+                  variant="light"
+                  size="sm"
+                  onPress={onDeleteModalOpen}
+                >
+                  完全削除
+                </Button>
               </div>
             </div>
           </div>
@@ -156,7 +245,10 @@ export default function CosplayerGalleryPage() {
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors duration-300 flex items-end justify-end p-2">
-                    <div className="opacity-0 hover:opacity-100 transition-opacity duration-300 flex gap-1">
+                    <div 
+                      className="opacity-0 hover:opacity-100 transition-opacity duration-300 flex gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button
                         isIconOnly
                         size="sm"
@@ -174,6 +266,18 @@ export default function CosplayerGalleryPage() {
                         className="bg-black/50"
                       >
                         <BookmarkIcon className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="solid"
+                        color="warning"
+                        className="bg-red-500/90 hover:bg-red-600"
+                        onPress={() => handleDeleteImage(image.filename)}
+                        isLoading={deletingImages.has(image.filename)}
+                        isDisabled={deletingImages.has(image.filename)}
+                      >
+                        <TrashIcon className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -279,6 +383,45 @@ export default function CosplayerGalleryPage() {
                 <BookmarkIcon className="w-4 h-4" />
               </Button>
             </div>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={isDeleteModalOpen} onClose={onDeleteModalClose}>
+        <ModalContent>
+          <ModalHeader>
+            <h3 className="text-lg font-semibold text-danger">完全削除の確認</h3>
+          </ModalHeader>
+          <ModalBody>
+            <p className="text-default-700">
+              <strong>{cosplayer.displayName} (@{cosplayer.username})</strong> を完全に削除しますか？
+            </p>
+            <div className="mt-4 p-4 bg-danger-50 border border-danger-200 rounded-lg">
+              <p className="text-sm text-danger-800">
+                <strong>⚠️ 警告：</strong><br />
+                この操作は取り消せません。以下のデータが完全に削除されます：
+              </p>
+              <ul className="mt-2 text-xs text-danger-700 list-disc list-inside space-y-1">
+                <li>コスプレイヤーのプロフィール情報</li>
+                <li>ダウンロードされた画像・動画ファイル ({cosplayer.media.length}個)</li>
+                <li>フォロー状態などの設定</li>
+              </ul>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="light"
+              onPress={onDeleteModalClose}
+            >
+              キャンセル
+            </Button>
+            <Button
+              color="danger"
+              onPress={handleDeleteCosplayer}
+            >
+              完全削除する
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

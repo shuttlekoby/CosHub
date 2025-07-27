@@ -38,3 +38,12 @@ pnpm-lock.yaml
 yarn.lock
 package-lock.json
 bun.lockb
+
+# CosHub specific files
+/public/downloads/
+/data/
+../twitter-media-downloader/
+../twmd_cookies.json
+../setup_auth.sh
+../package-lock.json
+../~/

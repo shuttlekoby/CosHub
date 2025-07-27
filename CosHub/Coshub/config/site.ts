@@ -13,6 +13,10 @@ export const siteConfig = {
       href: "/create",
     },
     {
+      label: "Auth",
+      href: "/auth",
+    },
+    {
       label: "Docs",
       href: "/docs",
     },
@@ -49,6 +53,10 @@ export const siteConfig = {
     {
       label: "Calendar",
       href: "/calendar",
+    },
+    {
+      label: "Auth Settings",
+      href: "/auth",
     },
     {
       label: "Settings",
