@@ -93,7 +93,8 @@ async function writeToFile(data: CosplayerData[]): Promise<void> {
 async function getData(): Promise<CosplayerData[]> {
   if (kv) {
     try {
-      return await kv.get<CosplayerData[]>(COSPLAYERS_KEY) || [];
+      const result = await kv.get(COSPLAYERS_KEY);
+      return (result as CosplayerData[]) || [];
     } catch (error) {
       console.warn('KV error, falling back to file:', error);
       return await readFromFile();
