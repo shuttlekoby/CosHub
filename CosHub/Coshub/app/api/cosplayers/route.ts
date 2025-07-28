@@ -118,13 +118,20 @@ async function setData(data: CosplayerData[]): Promise<void> {
 
 // GET - 全コスプレイヤーデータを取得
 export async function GET() {
-  try {    
+  try {
+    // CORS対応
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+    
     const cosplayers = await getData();
     
     return NextResponse.json({
       success: true,
       cosplayers
-    });
+    }, { headers });
   } catch (error) {
     console.error('コスプレイヤーデータ取得エラー:', error);
     return NextResponse.json(
@@ -134,9 +141,27 @@ export async function GET() {
   }
 }
 
+// OPTIONS - CORS preflight対応
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
 // POST - 新しいコスプレイヤーを追加
 export async function POST(request: NextRequest) {
   try {
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+
     const newCosplayer: CosplayerData = await request.json();
     
     // 既存のデータを取得
@@ -147,7 +172,7 @@ export async function POST(request: NextRequest) {
     if (exists) {
       return NextResponse.json(
         { error: 'このコスプレイヤーは既に追加されています' },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
     
@@ -158,7 +183,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       cosplayer: newCosplayer
-    });
+    }, { headers });
   } catch (error) {
     console.error('コスプレイヤー追加エラー:', error);
     return NextResponse.json(
