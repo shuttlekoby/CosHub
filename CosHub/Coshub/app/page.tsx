@@ -6,18 +6,19 @@ import { Card, CardHeader, CardBody, CardFooter } from "@heroui/card";
 import { Avatar } from "@heroui/avatar";
 import { Button } from "@heroui/button";
 import { Tabs, Tab } from "@heroui/tabs";
+import { Chip } from "@heroui/chip";
 import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { SearchIcon } from "@/components/icons";
 import { CosplayerData, getCosplayers, toggleFollow } from "@/lib/cosplayerStore";
-import { GalleryIcon, TrendIcon, HeartIcon, BookmarkIcon } from "@/components/tab-icons";
+import { GalleryIcon, MusicIcon, VideoIcon } from "@/components/tab-icons";
 
 
 
 export default function Home() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTab, setSelectedTab] = useState("all");
+  const [selectedTab, setSelectedTab] = useState("photos");
   const [sortBy, setSortBy] = useState("popular");
   const [cosplayers, setCosplayers] = useState<CosplayerData[]>([]);
 
@@ -41,10 +42,7 @@ export default function Home() {
     const matchesSearch = cosplayer.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          cosplayer.username.toLowerCase().includes(searchQuery.toLowerCase());
     
-    if (selectedTab === "saved") {
-      return matchesSearch && cosplayer.isFollowed;
-    }
-    
+    // 現在のタブに関係なく、すべてのコスプレイヤーを表示（将来的に必要に応じて拡張可能）
     return matchesSearch;
   }).sort((a, b) => {
     if (sortBy === "popular") {
@@ -59,19 +57,19 @@ export default function Home() {
 
   const ProfileCard = ({ cosplayer }: { cosplayer: CosplayerData }) => (
     <Card 
-      className="max-w-[340px] hover:scale-105 transition-transform cursor-pointer"
+      className="max-w-[420px] w-full hover:scale-105 transition-transform cursor-pointer"
       isPressable
       onPress={() => handleProfileClick(cosplayer.username)}
     >
       <CardHeader className="justify-between">
-        <div className="flex gap-5">
+        <div className="flex gap-5 flex-1">
           <Avatar
             isBordered
             radius="full"
             size="md"
             src={cosplayer.avatar}
           />
-          <div className="flex flex-col gap-1 items-start justify-center">
+          <div className="flex flex-col gap-1 items-start justify-center flex-1">
             <h4 className="text-small font-semibold leading-none text-default-600">
               {cosplayer.displayName}
             </h4>
@@ -80,7 +78,7 @@ export default function Home() {
             </h5>
           </div>
         </div>
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} className="ml-4">
           <Button
             className={cosplayer.isFollowed ? "bg-transparent text-foreground border-default-200" : ""}
             color="primary"
@@ -102,15 +100,32 @@ export default function Home() {
           </span>
         </span>
       </CardBody>
-      <CardFooter className="gap-3">
-        <div className="flex gap-1">
-          <p className="font-semibold text-default-400 text-small">{cosplayer.following}</p>
-          <p className="text-default-400 text-small">フォロー中</p>
+      <CardFooter className="flex-col gap-3">
+        <div className="flex gap-6 w-full">
+          <div className="flex gap-1">
+            <p className="font-semibold text-default-400 text-small">{cosplayer.following}</p>
+            <p className="text-default-400 text-small">フォロー中</p>
+          </div>
+          <div className="flex gap-1">
+            <p className="font-semibold text-default-400 text-small">{cosplayer.followers}</p>
+            <p className="text-default-400 text-small">フォロワー</p>
+          </div>
         </div>
-        <div className="flex gap-1">
-          <p className="font-semibold text-default-400 text-small">{cosplayer.followers}</p>
-          <p className="text-default-400 text-small">フォロワー</p>
-        </div>
+        
+        {/* 画像プレビュー */}
+        {cosplayer.media && cosplayer.media.length > 0 && (
+          <div className="grid grid-cols-4 gap-1 w-full mt-2">
+            {cosplayer.media.slice(0, 4).map((media, index) => (
+              <div key={index} className="aspect-square overflow-hidden rounded-md">
+                <img
+                  src={media.url}
+                  alt={`Preview ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </CardFooter>
     </Card>
   );
@@ -154,50 +169,58 @@ export default function Home() {
 
       {/* タブ */}
       <div className="flex justify-center mb-8">
-        <Tabs
-          aria-label="コンテンツタブ"
-          color="primary"
-          variant="bordered"
-          selectedKey={selectedTab}
-          onSelectionChange={(key) => setSelectedTab(key as string)}
-        >
-          <Tab
-            key="all"
-            title={
-              <div className="flex items-center space-x-2">
-                <GalleryIcon />
-                <span>すべて</span>
-              </div>
-            }
-          />
-          <Tab
-            key="latest"
-            title={
-              <div className="flex items-center space-x-2">
-                <TrendIcon />
-                <span>最新</span>
-              </div>
-            }
-          />
-          <Tab
-            key="popular"
-            title={
-              <div className="flex items-center space-x-2">
-                <HeartIcon />
-                <span>人気</span>
-              </div>
-            }
-          />
-          <Tab
-            key="saved"
-            title={
-              <div className="flex items-center space-x-2">
-                <BookmarkIcon />
-                <span>保存済み</span>
-              </div>
-            }
-          />
-        </Tabs>
+        <div className="flex w-full flex-col max-w-4xl">
+          <Tabs
+            aria-label="Options"
+            classNames={{
+              tabList: "gap-6 w-full relative rounded-none p-0 border-b border-divider",
+              cursor: "w-full bg-[#22d3ee]",
+              tab: "max-w-fit px-0 h-12",
+              tabContent: "group-data-[selected=true]:text-[#06b6d4]",
+            }}
+            color="primary"
+            variant="underlined"
+            selectedKey={selectedTab}
+            onSelectionChange={(key) => setSelectedTab(key as string)}
+          >
+            <Tab
+              key="photos"
+              title={
+                <div className="flex items-center space-x-2">
+                  <GalleryIcon />
+                  <span>Photos</span>
+                  <Chip size="sm" variant="faded">
+                    {filteredCosplayers.reduce((total, cosplayer) => total + (cosplayer.media?.length || 0), 0)}
+                  </Chip>
+                </div>
+              }
+            />
+            <Tab
+              key="music"
+              title={
+                <div className="flex items-center space-x-2">
+                  <MusicIcon />
+                  <span>Music</span>
+                  <Chip size="sm" variant="faded">
+                    3
+                  </Chip>
+                </div>
+              }
+            />
+            <Tab
+              key="videos"
+              title={
+                <div className="flex items-center space-x-2">
+                  <VideoIcon />
+                  <span>Videos</span>
+                  <Chip size="sm" variant="faded">
+                    1
+                  </Chip>
+                </div>
+              }
+            />
+          </Tabs>
+        </div>
       </div>
 
       {/* プロフィールグリッド */}

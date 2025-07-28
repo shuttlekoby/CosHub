@@ -28,7 +28,7 @@ import {
 
 export default function CreatePage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTab, setSelectedTab] = useState("gallery");
+  const [selectedTab, setSelectedTab] = useState("cosplayers");
   const [selectedImage, setSelectedImage] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [cosplayers, setCosplayers] = useState<CosplayerData[]>([]);
@@ -508,17 +508,7 @@ export default function CreatePage() {
               追加
             </Button>
           </div>
-          
-          {/* 詳細追加ボタン */}
-          <Button 
-            color="secondary" 
-            variant="bordered"
-            size="lg"
-            onPress={onAddFormOpen}
-            className="w-full"
-          >
-            📝 詳細情報を入力して追加
-          </Button>
+
         </div>
 
         {/* 検索バー */}
@@ -702,15 +692,7 @@ export default function CreatePage() {
                     >
                       {cosplayer.downloadStatus?.isDownloading ? 'ダウンロード中...' : 'メディアをダウンロード'}
                     </Button>
-                    
-                    <Button
-                      color="secondary"
-                      variant="bordered"
-                      size="sm"
-                      onPress={() => handleUpdateAvatar(cosplayer.username)}
-                    >
-                      🖼️ アイコン更新
-                    </Button>
+
                     
                     <Button
                       color="warning"
