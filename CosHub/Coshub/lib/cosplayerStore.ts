@@ -49,9 +49,6 @@ export interface DownloadStatus {
   error?: string;
 }
 
-// ローカルストレージのキー
-const STORAGE_KEY = 'coshub_cosplayers';
-
 // Twitterプロフィール画像を取得する関数
 export const getTwitterProfileImage = async (username: string): Promise<string> => {
   // 複数のサービスを試す（フォールバック付き）
@@ -119,33 +116,55 @@ export const getTwitterUserMediaWithTwmd = async (username: string, count: numbe
   }
 };
 
-// ローカルストレージからデータを取得
-export const getCosplayers = (): CosplayerData[] => {
+// ローカルストレージのキー
+const STORAGE_KEY = 'coshub_cosplayers';
+
+// 同期システムを使ったデータ取得
+export const getCosplayers = async (): Promise<CosplayerData[]> => {
   if (typeof window === 'undefined') return [];
   
   try {
+    // 1. localStorageからデータを読み込み
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const localData = stored ? JSON.parse(stored) : [];
+    
+    // 2. 同期システムを使って最新データを取得
+    const { syncData } = await import('./syncStorage');
+    const syncedData = syncData(localData);
+    
+    // 3. 同期されたデータをlocalStorageに保存
+    if (syncedData !== localData) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData));
+    }
+    
+    return syncedData;
+  } catch (error) {
+    console.error('Failed to load cosplayers:', error);
+    // フォールバック: localStorageから直接読み込み
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
-  } catch (error) {
-    console.error('Failed to load cosplayers from localStorage:', error);
-    return [];
   }
 };
 
-// ローカルストレージにデータを保存
-export const saveCosplayers = (cosplayers: CosplayerData[]): void => {
+// データ保存と同期
+export const saveCosplayers = async (cosplayers: CosplayerData[]): Promise<void> => {
   if (typeof window === 'undefined') return;
   
   try {
+    // 1. localStorageに保存
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cosplayers));
+    
+    // 2. 同期システムでクッキーにも保存
+    const { saveToSyncCookie } = await import('./syncStorage');
+    saveToSyncCookie(cosplayers);
   } catch (error) {
-    console.error('Failed to save cosplayers to localStorage:', error);
+    console.error('Failed to save cosplayers:', error);
   }
 };
 
 // 新しいコスプレイヤーを追加
 export const addCosplayer = async (username: string, displayName?: string): Promise<CosplayerData> => {
-  const cosplayers = getCosplayers();
+  const cosplayers = await getCosplayers();
   
   // 既存チェック
   const existingCosplayer = cosplayers.find(c => c.username === username);
@@ -183,73 +202,89 @@ export const addCosplayer = async (username: string, displayName?: string): Prom
   };
   
   const updatedCosplayers = [...cosplayers, newCosplayer];
-  saveCosplayers(updatedCosplayers);
+  await saveCosplayers(updatedCosplayers);
   
   return newCosplayer;
 };
 
 // コスプレイヤーを更新
-export const updateCosplayer = (id: string, updates: Partial<CosplayerData>): void => {
-  const cosplayers = getCosplayers();
+export const updateCosplayer = async (id: string, updates: Partial<CosplayerData>): Promise<void> => {
+  const cosplayers = await getCosplayers();
   const updatedCosplayers = cosplayers.map(cosplayer =>
     cosplayer.id === id ? { ...cosplayer, ...updates } : cosplayer
   );
-  saveCosplayers(updatedCosplayers);
+  await saveCosplayers(updatedCosplayers);
 };
 
 // プロフィール画像を更新する関数
 export const updateCosplayerAvatar = async (username: string): Promise<void> => {
-  const cosplayers = getCosplayers();
-  const profileImage = await getTwitterProfileImage(username);
+  const cosplayers = await getCosplayers();
+  const cosplayer = cosplayers.find(c => c.username === username);
   
-  const updatedCosplayers = cosplayers.map(cosplayer =>
-    cosplayer.username === username 
-      ? { ...cosplayer, avatar: profileImage }
-      : cosplayer
-  );
-  saveCosplayers(updatedCosplayers);
+  if (!cosplayer) {
+    throw new Error('Cosplayer not found');
+  }
+
+  const profileImage = await getTwitterProfileImage(username);
+  await updateCosplayer(cosplayer.id, { avatar: profileImage });
 };
 
 // フォロー状態を切り替え
-export const toggleFollow = (id: string): void => {
-  const cosplayers = getCosplayers();
-  const updatedCosplayers = cosplayers.map(cosplayer =>
-    cosplayer.id === id ? { ...cosplayer, isFollowed: !cosplayer.isFollowed } : cosplayer
-  );
-  saveCosplayers(updatedCosplayers);
+export const toggleFollow = async (id: string): Promise<void> => {
+  const cosplayers = await getCosplayers();
+  const cosplayer = cosplayers.find(c => c.id === id);
+  
+  if (!cosplayer) {
+    throw new Error('Cosplayer not found');
+  }
+
+  await updateCosplayer(id, { isFollowed: !cosplayer.isFollowed });
 };
 
 // メディアファイルを追加
-export const addMediaToCosplayer = (username: string, media: MediaFile[]): void => {
-  const cosplayers = getCosplayers();
-  const updatedCosplayers = cosplayers.map(cosplayer =>
-    cosplayer.username === username 
-      ? { ...cosplayer, media: [...cosplayer.media, ...media] }
-      : cosplayer
-  );
-  saveCosplayers(updatedCosplayers);
+export const addMediaToCosplayer = async (username: string, media: MediaFile[]): Promise<void> => {
+  const cosplayers = await getCosplayers();
+  const cosplayer = cosplayers.find(c => c.username === username);
+  
+  if (!cosplayer) {
+    throw new Error('Cosplayer not found');
+  }
+
+  const updatedMedia = [...cosplayer.media, ...media];
+  await updateCosplayer(cosplayer.id, { media: updatedMedia });
 };
 
 // ダウンロード状況を更新
-export const updateDownloadStatus = (username: string, status: DownloadStatus): void => {
-  const cosplayers = getCosplayers();
-  const updatedCosplayers = cosplayers.map(cosplayer =>
-    cosplayer.username === username 
-      ? { ...cosplayer, downloadStatus: status }
-      : cosplayer
-  );
-  saveCosplayers(updatedCosplayers);
+export const updateDownloadStatus = async (username: string, status: DownloadStatus): Promise<void> => {
+  const cosplayers = await getCosplayers();
+  const cosplayer = cosplayers.find(c => c.username === username);
+  
+  if (!cosplayer) {
+    throw new Error('Cosplayer not found');
+  }
+
+  await updateCosplayer(cosplayer.id, { downloadStatus: status });
 };
 
 // コスプレイヤーを削除
-export const removeCosplayer = (id: string): void => {
-  const cosplayers = getCosplayers();
+export const removeCosplayer = async (id: string): Promise<void> => {
+  const cosplayers = await getCosplayers();
   const updatedCosplayers = cosplayers.filter(cosplayer => cosplayer.id !== id);
-  saveCosplayers(updatedCosplayers);
+  await saveCosplayers(updatedCosplayers);
 };
 
 // データをクリア
-export const clearAllData = (): void => {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(STORAGE_KEY);
+export const clearAllData = async (): Promise<void> => {
+  const cosplayers = await getCosplayers();
+  
+  // 全てのコスプレイヤーを削除
+  for (const cosplayer of cosplayers) {
+    await removeCosplayer(cosplayer.id);
+  }
+}; 
+
+// ブラウザサイドの互換性のための同期版関数（既存のコードとの互換性のため）
+export const getCosplayersSync = (): CosplayerData[] => {
+  console.warn('getCosplayersSync is deprecated. Use getCosplayers() instead.');
+  return [];
 }; 
