@@ -1,0 +1,22 @@
+{
+    "extractor": {
+        "twitter": {
+            "cookies": {
+                "auth_token": "YOUR_AUTH_TOKEN_HERE",
+                "ct0": "YOUR_CT0_TOKEN_HERE"
+            },
+            "include": "timeline",
+            "retweets": false,
+            "replies": false,
+            "videos": false
+        },
+        "base-directory": "./downloads/"
+    },
+    "output": {
+        "progress": true,
+        "mode": "terminal"
+    },
+    "downloader": {
+        "part-directory": "/tmp/.gallery-dl/"
+    }
+} 

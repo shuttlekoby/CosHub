@@ -9,6 +9,7 @@ import { Tabs, Tab } from "@heroui/tabs";
 import { Chip } from "@heroui/chip";
 import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
+import { Spinner } from "@heroui/spinner";
 import { SearchIcon } from "@/components/icons";
 import { CosplayerData, getCosplayers, toggleFollow } from "@/lib/cosplayerStore";
 import { GalleryIcon, MusicIcon, VideoIcon } from "@/components/tab-icons";
@@ -21,16 +22,38 @@ export default function Home() {
   const [selectedTab, setSelectedTab] = useState("photos");
   const [sortBy, setSortBy] = useState("popular");
   const [cosplayers, setCosplayers] = useState<CosplayerData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 初回読み込み時にローカルストレージからデータを取得
+  // 初回読み込み時にデータベースからデータを取得
   useEffect(() => {
-    const savedCosplayers = getCosplayers();
-    setCosplayers(savedCosplayers);
+    const loadCosplayers = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const savedCosplayers = await getCosplayers();
+        setCosplayers(savedCosplayers);
+      } catch (err) {
+        console.error('Failed to load cosplayers:', err);
+        setError('データの読み込みに失敗しました');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCosplayers();
   }, []);
 
-  const handleFollow = (id: string) => {
-    toggleFollow(id);
-    setCosplayers(getCosplayers());
+  const handleFollow = async (id: string) => {
+    try {
+      await toggleFollow(id);
+      // データを再読み込み
+      const updatedCosplayers = await getCosplayers();
+      setCosplayers(updatedCosplayers);
+    } catch (err) {
+      console.error('Failed to toggle follow:', err);
+      setError('フォロー状態の更新に失敗しました');
+    }
   };
 
   const handleProfileClick = (username: string) => {
@@ -129,6 +152,44 @@ export default function Home() {
       </CardFooter>
     </Card>
   );
+
+  // エラー表示
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-4">
+            CosHub
+          </h1>
+          <p className="text-red-500 text-lg mb-4">{error}</p>
+          <Button
+            color="primary"
+            onPress={() => window.location.reload()}
+          >
+            再読み込み
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ローディング表示
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-4">
+            CosHub
+          </h1>
+          <p className="text-gray-600 text-lg mb-8">
+            お気に入りのコスプレイヤーを発見しよう
+          </p>
+          <Spinner size="lg" color="primary" />
+          <p className="text-gray-500 mt-4">データを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

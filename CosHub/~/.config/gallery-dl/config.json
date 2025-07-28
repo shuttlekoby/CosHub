@@ -1,0 +1,25 @@
+{
+  "extractor": {
+    "twitter": {
+      "filename": "{date!S:%Y%m%d_%H%M%S}_{tweet_id}_{num}.{extension}",
+      "directory": ["twitter", "{user[screen_name]}"],
+      "cookies": null,
+      "guest": false,
+      "api": {
+        "auth": null,
+        "ct0": null
+      },
+      "transform": {
+        "retweets": true
+      }
+    }
+  },
+  "output": {
+    "mode": "json",
+    "progress": true
+  },
+  "downloader": {
+    "retries": 3,
+    "timeout": 30.0
+  }
+} 

@@ -88,10 +88,18 @@ export default function CreatePage() {
     uploadDate: ""
   });
 
-  // 初回読み込み時にローカルストレージからデータを取得
+  // 初回読み込み時にデータベースからデータを取得
   useEffect(() => {
-    const savedCosplayers = getCosplayers();
-    setCosplayers(savedCosplayers);
+    const loadCosplayers = async () => {
+      try {
+        const savedCosplayers = await getCosplayers();
+        setCosplayers(savedCosplayers);
+      } catch (error) {
+        console.error('Failed to load cosplayers:', error);
+      }
+    };
+    
+    loadCosplayers();
   }, []);
 
   const filteredCosplayers = cosplayers.filter(cosplayer =>
@@ -144,11 +152,12 @@ export default function CreatePage() {
           likes: Math.floor(Math.random() * 2000) + 100
         }));
         
-        // ローカルストレージに保存
-        addMediaToCosplayer(username, mediaFiles);
+        // データベースに保存
+        await addMediaToCosplayer(username, mediaFiles);
         
         // ステートを更新
-        setCosplayers(getCosplayers());
+        const updatedCosplayers = await getCosplayers();
+        setCosplayers(updatedCosplayers);
       }
     } catch (error) {
       console.error('既存ファイルの読み込みエラー:', error);
@@ -163,13 +172,14 @@ export default function CreatePage() {
       progress: 10,
       message: 'ダウンロード開始...'
     };
-    updateDownloadStatus(username, status);
-    setCosplayers(getCosplayers());
+    await updateDownloadStatus(username, status);
+    const refreshedCosplayers = await getCosplayers();
+    setCosplayers(refreshedCosplayers);
 
     try {
       // プログレス更新のシミュレーション
-      const progressInterval = setInterval(() => {
-        const currentCosplayers = getCosplayers();
+      const progressInterval = setInterval(async () => {
+        const currentCosplayers = await getCosplayers();
         const cosplayer = currentCosplayers.find(c => c.username === username);
         if (cosplayer && cosplayer.downloadStatus) {
           const newProgress = Math.min(cosplayer.downloadStatus.progress + 10, 90);
@@ -179,8 +189,9 @@ export default function CreatePage() {
             message: newProgress < 50 ? 'ツイートを取得中...' : 
                     newProgress < 80 ? '画像をダウンロード中...' : 'WebPに変換中...'
           };
-          updateDownloadStatus(username, updatedStatus);
-          setCosplayers(getCosplayers());
+          await updateDownloadStatus(username, updatedStatus);
+          const refreshedCosplayers = await getCosplayers();
+          setCosplayers(refreshedCosplayers);
         }
       }, 1000);
 
@@ -211,7 +222,7 @@ export default function CreatePage() {
         }));
         
         // メディアファイルを追加
-        addMediaToCosplayer(username, mediaFiles);
+        await addMediaToCosplayer(username, mediaFiles);
         
         // ダウンロード状況を更新
         const successStatus: DownloadStatus = {
@@ -219,10 +230,11 @@ export default function CreatePage() {
           progress: 100,
           message: `${data.downloadedCount}個のファイルをダウンロード完了`
         };
-        updateDownloadStatus(username, successStatus);
+        await updateDownloadStatus(username, successStatus);
         
         // ステートを更新
-        setCosplayers(getCosplayers());
+        const refreshedCosplayers = await getCosplayers();
+        setCosplayers(refreshedCosplayers);
       } else {
         throw new Error(data.error || 'ダウンロードに失敗しました');
       }
@@ -234,8 +246,9 @@ export default function CreatePage() {
         message: 'エラー',
         error: error instanceof Error ? error.message : 'Unknown error'
       };
-      updateDownloadStatus(username, errorStatus);
-      setCosplayers(getCosplayers());
+      await updateDownloadStatus(username, errorStatus);
+      const refreshedCosplayers = await getCosplayers();
+      setCosplayers(refreshedCosplayers);
     }
   };
 
@@ -244,7 +257,8 @@ export default function CreatePage() {
     try {
       await updateCosplayerAvatar(username);
       // ステートを更新
-      setCosplayers(getCosplayers());
+      const refreshedCosplayers = await getCosplayers();
+      setCosplayers(refreshedCosplayers);
     } catch (error) {
       console.error('プロフィール画像更新エラー:', error);
       alert('プロフィール画像の更新に失敗しました');
