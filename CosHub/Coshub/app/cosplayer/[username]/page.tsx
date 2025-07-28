@@ -25,10 +25,13 @@ export default function CosplayerGalleryPage() {
   
   useEffect(() => {
     if (username) {
-      const cosplayers = getCosplayers();
-      const foundCosplayer = cosplayers.find(c => c.username === username);
-      setCosplayer(foundCosplayer || null);
-      setLoading(false);
+      const loadCosplayer = async () => {
+        const cosplayers = await getCosplayers();
+        const foundCosplayer = cosplayers.find(c => c.username === username);
+        setCosplayer(foundCosplayer || null);
+        setLoading(false);
+      };
+      loadCosplayer();
     }
   }, [username]);
 
@@ -114,7 +117,7 @@ export default function CosplayerGalleryPage() {
         setCosplayer(updatedCosplayer);
         
         // ローカルストレージも更新
-        const cosplayers = getCosplayers();
+        const cosplayers = await getCosplayers();
         const updatedCosplayers = cosplayers.map(c => 
           c.id === cosplayer.id ? updatedCosplayer : c
         );
