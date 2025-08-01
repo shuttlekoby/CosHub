@@ -198,6 +198,10 @@ export async function POST(request: NextRequest) {
     
     if (downloadedFiles.length > 0) {
       try {
+        // WebP変換スクリプトの存在確認
+        await fs.access(convertScriptPath);
+        console.log(`✅ WebP変換スクリプトが見つかりました: ${convertScriptPath}`);
+        
         // Python環境の確認
         const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
         const convertCommand = `${pythonCmd} "${convertScriptPath}" "${imgDir}" -q 95`;
@@ -208,7 +212,7 @@ export async function POST(request: NextRequest) {
           timeout: 180000 // 3分のタイムアウト
         });
         
-        console.log('WebP conversion completed');
+        console.log('✅ WebP conversion completed');
         
         // 変換後のファイルを再スキャン
         const convertedFiles = await fs.readdir(imgDir);
@@ -216,12 +220,44 @@ export async function POST(request: NextRequest) {
         
       } catch (convertError) {
         console.error('WebP conversion failed:', convertError);
+        console.log('⚠️ WebP変換をスキップ（ダウンロードは正常完了）');
         // 変換に失敗した場合は元のファイルを使用
         webpFiles = downloadedFiles;
       }
     }
 
     const finalFiles = webpFiles.length > 0 ? webpFiles : downloadedFiles;
+
+    // Sanityに画像をアップロード
+    let sanityUploadResult = null;
+    if (finalFiles.length > 0) {
+      try {
+        const imagePaths = finalFiles.map(file => path.join(imgDir, file));
+        
+        const uploadResponse = await fetch(
+          `${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/sanity-upload`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              username,
+              imagePaths
+            })
+          }
+        );
+        
+        if (uploadResponse.ok) {
+          sanityUploadResult = await uploadResponse.json();
+          console.log('✅ Sanityアップロード完了:', sanityUploadResult.uploadedCount, '枚');
+        } else {
+          console.error('❌ Sanityアップロード失敗:', await uploadResponse.text());
+        }
+      } catch (uploadError) {
+        console.error('Sanityアップロードエラー:', uploadError);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -236,6 +272,7 @@ export async function POST(request: NextRequest) {
           type: ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg'
         };
       }),
+      sanityUpload: sanityUploadResult,
       stdout,
       stderr
     });
