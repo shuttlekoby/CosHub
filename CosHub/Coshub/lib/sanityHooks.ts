@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // Sanity APIからコスプレイヤー一覧を取得するフック
 export function useSanityCosplayers() {
@@ -6,31 +6,31 @@ export function useSanityCosplayers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchCosplayers() {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/sanity-cosplayers');
-        
-        if (!response.ok) {
-          throw new Error('コスプレイヤーデータの取得に失敗しました');
-        }
-        
-        const data = await response.json();
-        setCosplayers(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        console.error('Cosplayers fetch error:', err);
-      } finally {
-        setLoading(false);
+  const fetchCosplayers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/sanity-cosplayers');
+      
+      if (!response.ok) {
+        throw new Error('コスプレイヤーデータの取得に失敗しました');
       }
+      
+      const data = await response.json();
+      setCosplayers(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Cosplayers fetch error:', err);
+    } finally {
+      setLoading(false);
     }
-
-    fetchCosplayers();
   }, []);
 
-  return { cosplayers, loading, error, refetch: () => fetchCosplayers() };
+  useEffect(() => {
+    fetchCosplayers();
+  }, [fetchCosplayers]);
+
+  return { cosplayers, loading, error, refetch: fetchCosplayers };
 }
 
 // Sanity APIから特定ユーザーの画像一覧を取得するフック
@@ -45,34 +45,34 @@ export function useSanityImages(username: string, limit = 20) {
     hasMore: false
   });
 
-  useEffect(() => {
+  const fetchImages = useCallback(async () => {
     if (!username) return;
 
-    async function fetchImages() {
-      try {
-        setLoading(true);
-        const response = await fetch(
-          `/api/sanity-images?username=${encodeURIComponent(username)}&limit=${limit}&offset=0`
-        );
-        
-        if (!response.ok) {
-          throw new Error('画像データの取得に失敗しました');
-        }
-        
-        const data = await response.json();
-        setImages(data.images);
-        setPagination(data.pagination);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        console.error('Images fetch error:', err);
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `/api/sanity-images?username=${encodeURIComponent(username)}&limit=${limit}&offset=0`
+      );
+      
+      if (!response.ok) {
+        throw new Error('画像データの取得に失敗しました');
       }
+      
+      const data = await response.json();
+      setImages(data.images);
+      setPagination(data.pagination);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Images fetch error:', err);
+    } finally {
+      setLoading(false);
     }
-
-    fetchImages();
   }, [username, limit]);
+
+  useEffect(() => {
+    fetchImages();
+  }, [fetchImages]);
 
   const loadMore = async () => {
     if (!pagination.hasMore || loading) return;
@@ -101,7 +101,7 @@ export function useSanityImages(username: string, limit = 20) {
     error, 
     pagination, 
     loadMore,
-    refetch: () => fetchImages()
+    refetch: fetchImages
   };
 }
 
