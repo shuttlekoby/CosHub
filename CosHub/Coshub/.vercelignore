@@ -1,0 +1,9 @@
+# Exclude large download files to avoid serverless function size limit
+public/downloads/
+/public/downloads/
+**/public/downloads/**
+
+# Exclude other large files
+data/
+node_modules/
+.next/
