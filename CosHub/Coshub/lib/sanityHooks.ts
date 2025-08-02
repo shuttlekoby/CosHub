@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 // Sanity APIからコスプレイヤー一覧を取得するフック
 export function useSanityCosplayers() {
-  const [cosplayers, setCosplayers] = useState([]);
+  const [cosplayers, setCosplayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +35,7 @@ export function useSanityCosplayers() {
 
 // Sanity APIから特定ユーザーの画像一覧を取得するフック
 export function useSanityImages(username: string, limit = 20) {
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
