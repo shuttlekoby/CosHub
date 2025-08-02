@@ -3,7 +3,6 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs/promises';
-import { kv } from '@vercel/kv';
 
 const execAsync = promisify(exec);
 
@@ -25,26 +24,20 @@ export async function POST(request: NextRequest) {
     let authToken = '';
     let ct0 = '';
     
-    try {
-      const authData = await kv.get('coshub:auth') as any;
-      if (!authData) {
-        return NextResponse.json(
-          { error: '認証情報が設定されていません。/auth ページで設定してください。' },
-          { status: 401 }
-        );
-      }
-      authToken = authData.auth_token || '';
-      ct0 = authData.ct0 || '';
-    } catch (error) {
-      return NextResponse.json(
-        { error: '認証情報の読み込みに失敗しました。/auth ページで再設定してください。' },
-        { status: 401 }
-      );
+    // 環境変数をチェック
+    authToken = process.env.TWITTER_AUTH_TOKEN || '';
+    ct0 = process.env.TWITTER_CT0 || '';
+    
+    // 環境変数がない場合はリクエストから取得
+    if (!authToken || !ct0) {
+      authToken = options?.auth_token || '';
+      ct0 = options?.ct0 || '';
     }
-
+    
+    // それでもない場合はエラー
     if (!authToken || !ct0) {
       return NextResponse.json(
-        { error: '認証情報が不完全です。/auth ページで再設定してください。' },
+        { error: '認証情報が設定されていません。環境変数またはリクエストで認証情報を提供してください。' },
         { status: 401 }
       );
     }

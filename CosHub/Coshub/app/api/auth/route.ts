@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
 
-// Vercel KVのキー
-const AUTH_KEY = 'coshub:auth';
+// 環境変数ベースの認証保存（最も確実）
+const getAuthFromEnv = () => {
+  const authToken = process.env.TWITTER_AUTH_TOKEN;
+  const ct0 = process.env.TWITTER_CT0;
+  return { authToken, ct0 };
+};
+
+// 一時的なメモリストレージ（セッション間では保持されない）
+let tempAuthStorage: any = null;
 
 // 認証情報を保存
 export async function POST(request: NextRequest) {
@@ -22,11 +28,14 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // Vercel KVに保存
-    await kv.set(AUTH_KEY, authData);
+    // 一時的なメモリストレージに保存
+    tempAuthStorage = authData;
 
     return NextResponse.json(
-      { message: '認証情報が保存されました' },
+      { 
+        message: '認証情報が保存されました',
+        note: 'より永続的な保存には、Vercel Dashboardの環境変数を使用してください'
+      },
       { status: 200 }
     );
   } catch (error) {
@@ -41,22 +50,34 @@ export async function POST(request: NextRequest) {
 // 認証情報を取得
 export async function GET() {
   try {
-    // Vercel KVから取得
-    const authData = await kv.get(AUTH_KEY) as any;
-
-    if (!authData) {
+    // まず環境変数をチェック
+    const { authToken: envAuthToken, ct0: envCt0 } = getAuthFromEnv();
+    
+    if (envAuthToken && envCt0) {
       return NextResponse.json({
-        hasAuthToken: false,
-        hasCt0: false,
-        updated_at: null,
+        hasAuthToken: true,
+        hasCt0: true,
+        updated_at: 'Environment Variables',
+        source: 'env'
       });
     }
 
-    // セキュリティのため、実際の値は返さず、存在確認のみ
+    // 環境変数がない場合はメモリストレージをチェック
+    if (tempAuthStorage) {
+      return NextResponse.json({
+        hasAuthToken: !!tempAuthStorage.auth_token,
+        hasCt0: !!tempAuthStorage.ct0,
+        updated_at: tempAuthStorage.updated_at,
+        source: 'memory'
+      });
+    }
+
+    // どちらもない場合
     return NextResponse.json({
-      hasAuthToken: !!authData.auth_token,
-      hasCt0: !!authData.ct0,
-      updated_at: authData.updated_at,
+      hasAuthToken: false,
+      hasCt0: false,
+      updated_at: null,
+      source: 'none'
     });
   } catch (error) {
     console.error('認証情報取得エラー:', error);
@@ -64,6 +85,7 @@ export async function GET() {
       hasAuthToken: false,
       hasCt0: false,
       updated_at: null,
+      source: 'error'
     });
   }
 }
@@ -71,11 +93,14 @@ export async function GET() {
 // 認証情報を削除
 export async function DELETE() {
   try {
-    // Vercel KVから削除
-    await kv.del(AUTH_KEY);
+    // メモリストレージから削除（環境変数は削除できない）
+    tempAuthStorage = null;
     
     return NextResponse.json(
-      { message: '認証情報が削除されました' },
+      { 
+        message: '認証情報が削除されました',
+        note: '環境変数の認証情報は削除されません'
+      },
       { status: 200 }
     );
   } catch (error) {
