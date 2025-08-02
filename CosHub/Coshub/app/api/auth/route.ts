@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, readFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { kv } from '@vercel/kv';
 
-// Vercel環境では /tmp を使用（一時的だが動作する）
-const AUTH_FILE_PATH = join('/tmp', 'auth.json');
-
-// データディレクトリを作成
-async function ensureDataDirectory() {
-  try {
-    await mkdir('/tmp', { recursive: true });
-  } catch (error) {
-    // ディレクトリが既に存在する場合はエラーを無視
-  }
-}
+// Vercel KVのキー
+const AUTH_KEY = 'coshub:auth';
 
 // 認証情報を保存
 export async function POST(request: NextRequest) {
@@ -26,15 +16,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await ensureDataDirectory();
-
     const authData = {
       auth_token,
       ct0,
       updated_at: new Date().toISOString(),
     };
 
-    await writeFile(AUTH_FILE_PATH, JSON.stringify(authData, null, 2));
+    // Vercel KVに保存
+    await kv.set(AUTH_KEY, authData);
 
     return NextResponse.json(
       { message: '認証情報が保存されました' },
@@ -52,10 +41,16 @@ export async function POST(request: NextRequest) {
 // 認証情報を取得
 export async function GET() {
   try {
-    await ensureDataDirectory();
-    
-    const data = await readFile(AUTH_FILE_PATH, 'utf-8');
-    const authData = JSON.parse(data);
+    // Vercel KVから取得
+    const authData = await kv.get(AUTH_KEY) as any;
+
+    if (!authData) {
+      return NextResponse.json({
+        hasAuthToken: false,
+        hasCt0: false,
+        updated_at: null,
+      });
+    }
 
     // セキュリティのため、実際の値は返さず、存在確認のみ
     return NextResponse.json({
@@ -64,7 +59,7 @@ export async function GET() {
       updated_at: authData.updated_at,
     });
   } catch (error) {
-    // ファイルが存在しない場合
+    console.error('認証情報取得エラー:', error);
     return NextResponse.json({
       hasAuthToken: false,
       hasCt0: false,
@@ -76,7 +71,8 @@ export async function GET() {
 // 認証情報を削除
 export async function DELETE() {
   try {
-    await writeFile(AUTH_FILE_PATH, JSON.stringify({}, null, 2));
+    // Vercel KVから削除
+    await kv.del(AUTH_KEY);
     
     return NextResponse.json(
       { message: '認証情報が削除されました' },

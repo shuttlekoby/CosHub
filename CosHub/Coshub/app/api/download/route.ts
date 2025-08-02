@@ -3,6 +3,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs/promises';
+import { kv } from '@vercel/kv';
 
 const execAsync = promisify(exec);
 
@@ -25,13 +26,18 @@ export async function POST(request: NextRequest) {
     let ct0 = '';
     
     try {
-      const authData = await fs.readFile(path.join(process.cwd(), 'data', 'auth.json'), 'utf-8');
-      const auth = JSON.parse(authData);
-      authToken = auth.auth_token || '';
-      ct0 = auth.ct0 || '';
+      const authData = await kv.get('coshub:auth') as any;
+      if (!authData) {
+        return NextResponse.json(
+          { error: '認証情報が設定されていません。/auth ページで設定してください。' },
+          { status: 401 }
+        );
+      }
+      authToken = authData.auth_token || '';
+      ct0 = authData.ct0 || '';
     } catch (error) {
       return NextResponse.json(
-        { error: '認証情報が設定されていません。/auth ページで設定してください。' },
+        { error: '認証情報の読み込みに失敗しました。/auth ページで再設定してください。' },
         { status: 401 }
       );
     }
