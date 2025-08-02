@@ -8,7 +8,8 @@ const execAsync = promisify(exec);
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, options } = await request.json();
+    const requestBody = await request.json();
+    const { username, auth_token, ct0, test, options, ...otherFields } = requestBody;
 
     if (!username) {
       return NextResponse.json(
@@ -18,24 +19,24 @@ export async function POST(request: NextRequest) {
     }
 
     // テストモードかどうかをチェック
-    const isTestMode = options?.test === true;
+    const isTestMode = test === true || options?.test === true;
 
     // 認証情報を読み込み
     let authToken = '';
-    let ct0 = '';
+    let finalCt0 = '';
     
     // 環境変数をチェック
     authToken = process.env.TWITTER_AUTH_TOKEN || '';
-    ct0 = process.env.TWITTER_CT0 || '';
+    finalCt0 = process.env.TWITTER_CT0 || '';
     
     // 環境変数がない場合はリクエストから取得
-    if (!authToken || !ct0) {
-      authToken = options?.auth_token || '';
-      ct0 = options?.ct0 || '';
+    if (!authToken || !finalCt0) {
+      authToken = auth_token || authToken;
+      finalCt0 = ct0 || finalCt0;
     }
     
     // それでもない場合はエラー
-    if (!authToken || !ct0) {
+    if (!authToken || !finalCt0) {
       return NextResponse.json(
         { error: '認証情報が設定されていません。環境変数またはリクエストで認証情報を提供してください。' },
         { status: 401 }
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     
     if (isVercel) {
       // Vercel環境では Twitter API を直接使用
-      return await handleVercelDownload(username, authToken, ct0, options);
+      return await handleVercelDownload(username, authToken, finalCt0, requestBody);
     }
 
     // 正しい絶対パスを使用
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       },
       {
         Name: "ct0",
-        Value: ct0,
+        Value: finalCt0,
         Path: "/",
         Domain: ".twitter.com", 
         Expires: expiresTime.toISOString(),
