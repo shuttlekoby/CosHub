@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           metadata: {
             width: asset.metadata?.dimensions?.width || 0,
             height: asset.metadata?.dimensions?.height || 0,
-            format: asset.metadata?.format || '',
+            format: path.extname(filename).toLowerCase().replace('.', '') || 'jpg',
             size: asset.size || 0
           }
         })
