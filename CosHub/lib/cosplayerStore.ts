@@ -116,36 +116,62 @@ export const getTwitterUserMediaWithTwmd = async (username: string, count: numbe
   }
 };
 
-// APIからデータを取得（データベースから）
+// ローカルストレージのキー
+const STORAGE_KEY = 'coshub_cosplayers';
+
+// 同期システムを使ったデータ取得
 export const getCosplayers = async (): Promise<CosplayerData[]> => {
+  if (typeof window === 'undefined') return [];
+  
   try {
-    const response = await fetch('/api/cosplayers', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch cosplayers');
+    // 1. localStorageからデータを読み込み
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const localData = stored ? JSON.parse(stored) : [];
+    
+    // 2. 同期システムを使って最新データを取得
+    const { syncData } = await import('./syncStorage');
+    const syncedData = syncData(localData);
+    
+    // 3. 同期されたデータをlocalStorageに保存
+    if (syncedData !== localData) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData));
     }
-
-    const data = await response.json();
-    return data.cosplayers || [];
+    
+    return syncedData;
   } catch (error) {
-    console.error('Failed to load cosplayers from database:', error);
-    return [];
+    console.error('Failed to load cosplayers:', error);
+    // フォールバック: localStorageから直接読み込み
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
   }
 };
 
-// APIにデータを保存（データベースへ）
+// データ保存と同期
 export const saveCosplayers = async (cosplayers: CosplayerData[]): Promise<void> => {
-  // この関数は非推奨 - 個別のCRUD操作を使用
-  console.warn('saveCosplayers is deprecated. Use individual CRUD operations instead.');
+  if (typeof window === 'undefined') return;
+  
+  try {
+    // 1. localStorageに保存
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cosplayers));
+    
+    // 2. 同期システムでクッキーにも保存
+    const { saveToSyncCookie } = await import('./syncStorage');
+    saveToSyncCookie(cosplayers);
+  } catch (error) {
+    console.error('Failed to save cosplayers:', error);
+  }
 };
 
 // 新しいコスプレイヤーを追加
 export const addCosplayer = async (username: string, displayName?: string): Promise<CosplayerData> => {
+  const cosplayers = await getCosplayers();
+  
+  // 既存チェック
+  const existingCosplayer = cosplayers.find(c => c.username === username);
+  if (existingCosplayer) {
+    return existingCosplayer;
+  }
+  
   // 実際のTwitterプロフィール画像を取得
   let profileImage: string;
   try {
@@ -175,47 +201,19 @@ export const addCosplayer = async (username: string, displayName?: string): Prom
     addedAt: Date.now()
   };
   
-  try {
-    const response = await fetch('/api/cosplayers', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newCosplayer)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to add cosplayer');
-    }
-
-    const data = await response.json();
-    return data.cosplayer;
-  } catch (error) {
-    console.error('Failed to add cosplayer:', error);
-    throw error;
-  }
+  const updatedCosplayers = [...cosplayers, newCosplayer];
+  await saveCosplayers(updatedCosplayers);
+  
+  return newCosplayer;
 };
 
 // コスプレイヤーを更新
 export const updateCosplayer = async (id: string, updates: Partial<CosplayerData>): Promise<void> => {
-  try {
-    const response = await fetch('/api/cosplayers', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ id, updates })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to update cosplayer');
-    }
-  } catch (error) {
-    console.error('Failed to update cosplayer:', error);
-    throw error;
-  }
+  const cosplayers = await getCosplayers();
+  const updatedCosplayers = cosplayers.map(cosplayer =>
+    cosplayer.id === id ? { ...cosplayer, ...updates } : cosplayer
+  );
+  await saveCosplayers(updatedCosplayers);
 };
 
 // プロフィール画像を更新する関数
@@ -270,23 +268,9 @@ export const updateDownloadStatus = async (username: string, status: DownloadSta
 
 // コスプレイヤーを削除
 export const removeCosplayer = async (id: string): Promise<void> => {
-  try {
-    const response = await fetch('/api/cosplayers', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ id })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to remove cosplayer');
-    }
-  } catch (error) {
-    console.error('Failed to remove cosplayer:', error);
-    throw error;
-  }
+  const cosplayers = await getCosplayers();
+  const updatedCosplayers = cosplayers.filter(cosplayer => cosplayer.id !== id);
+  await saveCosplayers(updatedCosplayers);
 };
 
 // データをクリア

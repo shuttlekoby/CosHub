@@ -69,11 +69,7 @@ export default function CosplayerGalleryPage() {
           const imagesResponse = await fetch(`/api/sanity-images?username=${username}&limit=1000`);
           if (imagesResponse.ok) {
             const imageData = await imagesResponse.json();
-            console.log('🎯 取得した画像データ:', imageData);
-            console.log('🎯 画像数:', imageData.images?.length || 0);
             setImages(imageData.images || []);
-          } else {
-            console.error('❌ 画像取得エラー:', imagesResponse.status, imagesResponse.statusText);
           }
         } catch (error) {
           console.error('Failed to load cosplayer data:', error);
@@ -255,10 +251,6 @@ export default function CosplayerGalleryPage() {
         </Card>
 
         {/* Gallery Grid */}
-        {(() => {
-          console.log('🎯 レンダリング時の画像数:', images.length);
-          return null;
-        })()}
         {images.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-default-500 text-lg">まだ画像がありません</p>

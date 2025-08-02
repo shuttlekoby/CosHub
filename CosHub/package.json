@@ -1,0 +1,42 @@
+{
+  "name": "next-app-template",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --no-lint",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@heroui/avatar": "^2.0.42",
+    "@heroui/button": "^2.0.43",
+    "@heroui/card": "^2.0.43",
+    "@heroui/chip": "^2.0.42",
+    "@heroui/input": "^2.2.12",
+    "@heroui/modal": "^2.0.48",
+    "@heroui/navbar": "^2.0.46",
+    "@heroui/pagination": "^2.0.42",
+    "@heroui/progress": "^2.0.42",
+    "@heroui/spinner": "^2.0.42",
+    "@heroui/system": "^2.2.14",
+    "@heroui/tabs": "^2.0.46",
+    "@heroui/theme": "^2.2.14",
+    "@sanity/client": "^6.21.3",
+    "@sanity/image-url": "^1.0.2",
+    "framer-motion": "~11.1.1",
+    "next": "15.3.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.1.0",
+    "@types/react": "19.1.9",
+    "@types/react-dom": "19.1.4",
+    "eslint": "^9.6.0",
+    "eslint-config-next": "15.3.1",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.4",
+    "typescript": "5.9.2"
+  }
+}
