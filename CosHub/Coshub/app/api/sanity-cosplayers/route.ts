@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
         "latestImage": *[_type == "cosplayerImage" && username == ^.username] | order(uploadedAt desc)[0] {
           imageAsset,
           originalFilename
+        },
+        "thumbnailImages": *[_type == "cosplayerImage" && username == ^.username] | order(uploadedAt desc)[0...3] {
+          imageAsset,
+          originalFilename
         }
       }
     `);
@@ -27,7 +31,13 @@ export async function GET(request: NextRequest) {
       lastUpdated: cosplayer.lastUpdated,
       profileImage: cosplayer.latestImage?.imageAsset 
         ? urlFor(cosplayer.latestImage.imageAsset).width(150).height(150).fit('crop').url()
-        : '/api/placeholder/150/150'
+        : '/api/placeholder/150/150',
+      mainThumbnail: cosplayer.latestImage?.imageAsset 
+        ? urlFor(cosplayer.latestImage.imageAsset).width(300).height(200).fit('crop').url()
+        : null,
+      thumbnailImages: cosplayer.thumbnailImages?.map((img: any) => 
+        img.imageAsset ? urlFor(img.imageAsset).width(100).height(100).fit('crop').url() : null
+      ).filter(Boolean) || []
     }));
 
     return NextResponse.json(formattedCosplayers, {

@@ -6,6 +6,32 @@ import fs from 'fs/promises';
 
 const execAsync = promisify(exec);
 
+// 認証APIと同じメモリストレージを使用（モジュール間で共有）
+// このファイルが再読み込みされても、認証APIと同じプロセス内で実行される
+let tempAuthStorage: any = null;
+
+// 認証APIから実際の認証値を取得する関数
+async function getAuthValues() {
+  try {
+    const response = await fetch(`http://localhost:3000/api/auth?values=true`, {
+      method: 'GET'
+    });
+    const authData = await response.json();
+    
+    if (authData.auth_token && authData.ct0) {
+      return { 
+        authToken: authData.auth_token, 
+        ct0: authData.ct0 
+      };
+    }
+    
+    return { authToken: null, ct0: null };
+  } catch (error) {
+    console.error('認証情報の取得に失敗:', error);
+    return { authToken: null, ct0: null };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
@@ -25,20 +51,27 @@ export async function POST(request: NextRequest) {
     let authToken = '';
     let finalCt0 = '';
     
-    // 環境変数をチェック
+    // 1. 環境変数をチェック
     authToken = process.env.TWITTER_AUTH_TOKEN || '';
     finalCt0 = process.env.TWITTER_CT0 || '';
     
-    // 環境変数がない場合はリクエストから取得
+    // 2. 環境変数がない場合は認証APIから取得
+    if (!authToken || !finalCt0) {
+      const authValues = await getAuthValues();
+      authToken = authValues.authToken || authToken;
+      finalCt0 = authValues.ct0 || finalCt0;
+    }
+    
+    // 3. それでもない場合はリクエストから取得
     if (!authToken || !finalCt0) {
       authToken = auth_token || authToken;
       finalCt0 = ct0 || finalCt0;
     }
     
-    // それでもない場合はエラー
+    // 4. それでもない場合はエラー
     if (!authToken || !finalCt0) {
       return NextResponse.json(
-        { error: '認証情報が設定されていません。環境変数またはリクエストで認証情報を提供してください。' },
+        { error: '認証情報が設定されていません。/auth ページで認証情報を設定するか、環境変数またはリクエストで認証情報を提供してください。' },
         { status: 401 }
       );
     }
@@ -242,7 +275,8 @@ export async function POST(request: NextRequest) {
       try {
         const imagePaths = finalFiles.map(file => path.join(imgDir, file));
         
-        const uploadResponse = await fetch(
+        // 💡 非同期でSanityアップロードを実行（awaitしない）
+        fetch(
           `${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/sanity-upload`,
           {
             method: 'POST',
@@ -254,22 +288,31 @@ export async function POST(request: NextRequest) {
               imagePaths
             })
           }
-        );
-        
-        if (uploadResponse.ok) {
-          sanityUploadResult = await uploadResponse.json();
-          console.log('✅ Sanityアップロード完了:', sanityUploadResult.uploadedCount, '枚');
-        } else {
-          console.error('❌ Sanityアップロード失敗:', await uploadResponse.text());
-        }
-      } catch (uploadError) {
-        console.error('Sanityアップロードエラー:', uploadError);
+        ).then(async (uploadResponse) => {
+          if (uploadResponse.ok) {
+            const result = await uploadResponse.json();
+            console.log('✅ Sanityアップロード完了:', result.uploadedCount, '枚');
+          } else {
+            console.error('❌ Sanityアップロード失敗:', await uploadResponse.text());
+          }
+        }).catch((uploadError) => {
+          console.error('Sanityアップロードエラー:', uploadError);
+        });
+
+        // すぐに処理を継続（アップロード完了を待たない）
+        sanityUploadResult = {
+          status: 'uploading',
+          message: 'Sanityアップロードをバックグラウンドで実行中',
+          fileCount: finalFiles.length
+        };
+      } catch (setupError) {
+        console.error('Sanityアップロード設定エラー:', setupError);
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `${username}から${finalFiles.length}個のメディアをダウンロードしました`,
+      message: `✅ ${username}から${finalFiles.length}個のメディアをダウンロード完了！🚀 Sanityアップロードをバックグラウンドで実行中...`,
       username,
       downloadedCount: finalFiles.length,
       files: finalFiles.map(file => {
@@ -354,46 +397,24 @@ export async function GET(request: NextRequest) {
 
 // Vercel環境用のダウンロード処理
 async function handleVercelDownload(username: string, authToken: string, ct0: string, options: any) {
-  try {
-    console.log('🌐 Vercel環境でのTwitter API直接処理を開始');
-    
-    // シンプルなダミーデータでテスト
-    console.log(`📱 ユーザー: ${username} の処理を開始`);
-    
-    // Sanityに直接サンプルデータを作成（実際のTwitter APIは後で実装）
-    const sanityUploadResponse = await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/sanity-upload`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        imagePaths: [], // 空の配列でテスト
-        vercelMode: true
-      })
-    });
-
-    const sanityResult = sanityUploadResponse.ok ? await sanityUploadResponse.json() : { error: 'Sanity connection failed' };
-
-    return NextResponse.json({
-      success: true,
-      message: `Vercel環境での処理が完了しました（${username}）`,
-      username,
-      downloadedCount: 0,
-      method: 'vercel-api-direct',
-      sanityResult,
-      note: 'Twitter API直接実装（開発中）'
-    });
-
-  } catch (error) {
-    console.error('❌ Vercel処理エラー:', error);
-    return NextResponse.json(
-      { 
-        error: 'Vercel環境での処理に失敗しました',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        method: 'vercel-api-direct'
-      },
-      { status: 500 }
-    );
-  }
+  console.log('🌐 Vercel環境からのダウンロード要求:', username);
+  
+  return NextResponse.json({
+    success: false,
+    message: `⚠️ Vercel環境では画像ダウンロード機能は制限されています`,
+    username,
+    downloadedCount: 0,
+    error: 'VERCEL_LIMITATION',
+    details: {
+      reason: 'Vercelサーバーレス環境では外部バイナリ（twmd）の実行ができません',
+      suggestion: 'ローカル環境（http://localhost:3000）で画像ダウンロードを実行してください',
+      workaround: [
+        '1. ローカル環境でユーザーをダウンロード',
+        '2. 自動でSanityにアップロード',
+        '3. 全端末で画像表示が可能に'
+      ]
+    },
+    environment: 'vercel',
+    localUrl: 'http://localhost:3000/create'
+  });
 } 

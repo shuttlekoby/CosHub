@@ -9,29 +9,80 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure
 import { Spinner } from "@heroui/spinner";
 import { Chip } from "@heroui/chip";
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, HeartIcon, BookmarkIcon, TrashIcon } from "@/components/icons";
-import { getCosplayers, CosplayerData, MediaFile, removeCosplayer } from "@/lib/cosplayerStore";
+
+// Sanity API レスポンス型定義
+interface SanityCosplayer {
+  id: string;
+  username: string;
+  displayName: string;
+  imageCount: number;
+  lastUpdated: string;
+  profileImage: string;
+}
+
+interface SanityImage {
+  _id: string;
+  imageAsset: any;
+  originalFilename: string;
+  uploadedAt: string;
+  metadata: {
+    lqip: string;
+    dimensions: { width: number; height: number; aspectRatio: number };
+    format: string;
+    size: number;
+  };
+  imageUrl: string;
+}
 
 export default function CosplayerGalleryPage() {
   const params = useParams();
   const router = useRouter();
   const username = params?.username as string;
   
-  const [cosplayer, setCosplayer] = useState<CosplayerData | null>(null);
+  const [cosplayer, setCosplayer] = useState<SanityCosplayer | null>(null);
+  const [images, setImages] = useState<SanityImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
+  const [showControls, setShowControls] = useState(true);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isDeleteModalOpen, onOpen: onDeleteModalOpen, onClose: onDeleteModalClose } = useDisclosure();
   
   useEffect(() => {
     if (username) {
-      const loadCosplayer = async () => {
-        const cosplayers = await getCosplayers();
-        const foundCosplayer = cosplayers.find(c => c.username === username);
-        setCosplayer(foundCosplayer || null);
-        setLoading(false);
+      const loadCosplayerData = async () => {
+        try {
+          setLoading(true);
+          
+          // コスプレイヤー情報を取得
+          const cosplayersResponse = await fetch('/api/sanity-cosplayers');
+          if (cosplayersResponse.ok) {
+            const cosplayers = await cosplayersResponse.json();
+            const foundCosplayer = cosplayers.find((c: SanityCosplayer) => c.username === username);
+            setCosplayer(foundCosplayer || null);
+          }
+          
+          // 画像一覧を取得（全画像取得）
+          const imagesResponse = await fetch(`/api/sanity-images?username=${username}&limit=1000`);
+          if (imagesResponse.ok) {
+            const imageData = await imagesResponse.json();
+            console.log('🎯 取得した画像データ:', imageData);
+            console.log('🎯 画像数:', imageData.images?.length || 0);
+            setImages(imageData.images || []);
+          } else {
+            console.error('❌ 画像取得エラー:', imagesResponse.status, imagesResponse.statusText);
+          }
+        } catch (error) {
+          console.error('Failed to load cosplayer data:', error);
+        } finally {
+          setLoading(false);
+        }
       };
-      loadCosplayer();
+      
+      loadCosplayerData();
     }
   }, [username]);
 
@@ -41,23 +92,23 @@ export default function CosplayerGalleryPage() {
   };
 
   const handleNextImage = () => {
-    if (cosplayer && cosplayer.media.length > 0) {
-      setCurrentImageIndex((prev) => (prev + 1) % cosplayer.media.length);
+    if (images.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
     }
   };
 
   const handlePrevImage = () => {
-    if (cosplayer && cosplayer.media.length > 0) {
-      setCurrentImageIndex((prev) => (prev - 1 + cosplayer.media.length) % cosplayer.media.length);
+    if (images.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
     }
   };
 
   const handleDownloadImage = () => {
-    if (cosplayer && cosplayer.media[currentImageIndex]) {
-      const image = cosplayer.media[currentImageIndex];
+    if (images[currentImageIndex]) {
+      const image = images[currentImageIndex];
       const link = document.createElement('a');
-      link.href = image.url;
-      link.download = image.filename;
+      link.href = image.imageUrl;
+      link.download = image.originalFilename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -65,81 +116,62 @@ export default function CosplayerGalleryPage() {
   };
 
   const handleDeleteCosplayer = async () => {
-    if (!cosplayer) return;
-    
-    try {
-      // ローカルストレージから削除
-      removeCosplayer(cosplayer.id);
-      
-      // ダウンロードされたファイルも削除する場合
-      const response = await fetch(`/api/cosplayer/delete`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cosplayer.username })
-      });
-      
-      if (response.ok) {
-        alert('コスプレイヤーとダウンロードファイルを完全に削除しました');
-      } else {
-        alert('データは削除されましたが、ファイル削除でエラーが発生しました');
-      }
-    } catch (error) {
-      console.error('削除エラー:', error);
-      alert('削除に失敗しました');
-    }
-    
+    console.log('削除機能は開発中です');
+    // TODO: Sanityでのコスプレイヤー削除機能を実装
     onDeleteModalClose();
-    router.push('/');
   };
 
   const handleDeleteImage = async (filename: string) => {
-    if (!cosplayer) return;
+    console.log('画像削除機能は開発中です:', filename);
+    // TODO: Sanityでの画像削除機能を実装
+  };
+
+  // スワイプ機能のためのタッチイベント処理
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
     
-    // 削除中状態に追加
-    setDeletingImages(prev => new Set(prev).add(filename));
-    
-    try {
-      const response = await fetch('/api/cosplayer/delete-image', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          username: cosplayer.username, 
-          filename 
-        })
-      });
-      
-      if (response.ok) {
-        // ローカルストレージからも削除
-        const updatedCosplayer = { 
-          ...cosplayer, 
-          media: cosplayer.media.filter(media => media.filename !== filename) 
-        };
-        setCosplayer(updatedCosplayer);
-        
-        // ローカルストレージも更新
-        const cosplayers = await getCosplayers();
-        const updatedCosplayers = cosplayers.map(c => 
-          c.id === cosplayer.id ? updatedCosplayer : c
-        );
-        localStorage.setItem('cosplayers', JSON.stringify(updatedCosplayers));
-        
-        console.log(`画像 ${filename} を削除しました`);
-      } else {
-        const error = await response.json();
-        alert(`画像削除に失敗しました: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('画像削除エラー:', error);
-      alert('画像削除に失敗しました');
-    } finally {
-      // 削除中状態から削除
-      setDeletingImages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(filename);
-        return newSet;
-      });
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe && images.length > 0) {
+      handleNextImage();
+    }
+    if (isRightSwipe && images.length > 0) {
+      handlePrevImage();
     }
   };
+
+  // コントロール表示の切り替え
+  const toggleControls = () => {
+    setShowControls(!showControls);
+  };
+
+  // コントロール自動非表示タイマー
+  useEffect(() => {
+    if (showControls && isOpen) {
+      const timer = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showControls, isOpen]);
+
+  // モーダルが開いたときにコントロールを表示
+  useEffect(() => {
+    if (isOpen) {
+      setShowControls(true);
+    }
+  }, [isOpen]);
 
   if (loading) {
     return (
@@ -175,7 +207,7 @@ export default function CosplayerGalleryPage() {
             </Button>
             <div className="flex items-center gap-4">
               <Avatar
-                src={cosplayer.avatar}
+                src={cosplayer.profileImage}
                 size="md"
                 isBordered
               />
@@ -193,7 +225,7 @@ export default function CosplayerGalleryPage() {
         <Card className="p-6 mb-6">
           <div className="flex flex-col md:flex-row gap-6 items-start">
             <Avatar
-              src={cosplayer.avatar}
+              src={cosplayer.profileImage}
               size="lg"
               className="w-24 h-24"
               isBordered
@@ -202,15 +234,11 @@ export default function CosplayerGalleryPage() {
               <div className="flex flex-col gap-2 mb-4">
                 <h2 className="text-2xl font-bold">{cosplayer.displayName}</h2>
                 <p className="text-default-500">@{cosplayer.username}</p>
-                <p className="text-default-600">{cosplayer.bio}</p>
-                <div className="flex gap-4 text-sm">
-                  <span><strong>{cosplayer.following}</strong> フォロー中</span>
-                  <span><strong>{cosplayer.followers}</strong> フォロワー</span>
-                </div>
+                <p className="text-default-600">最終更新: {new Date(cosplayer.lastUpdated).toLocaleDateString('ja-JP')}</p>
               </div>
               <div className="flex gap-2 mb-4">
-                <Chip color="secondary" variant="flat">{cosplayer.hashtag}</Chip>
-                <Chip color="primary" variant="flat">{cosplayer.media.length} 画像</Chip>
+                <Chip color="primary" variant="flat">{images.length} 画像</Chip>
+                <Chip color="secondary" variant="flat">{cosplayer.imageCount} 総画像数</Chip>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -219,7 +247,7 @@ export default function CosplayerGalleryPage() {
                   size="sm"
                   onPress={onDeleteModalOpen}
                 >
-                  完全削除
+                  削除 (開発中)
                 </Button>
               </div>
             </div>
@@ -227,23 +255,27 @@ export default function CosplayerGalleryPage() {
         </Card>
 
         {/* Gallery Grid */}
-        {cosplayer.media.length === 0 ? (
+        {(() => {
+          console.log('🎯 レンダリング時の画像数:', images.length);
+          return null;
+        })()}
+        {images.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-default-500 text-lg">まだ画像がありません</p>
             <p className="text-default-400">Createページでメディアをダウンロードしてください</p>
           </div>
         ) : (
           <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
-            {cosplayer.media.map((image, index) => (
+            {images.map((image, index) => (
               <div
-                key={index}
+                key={image._id}
                 className="break-inside-avoid cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg"
                 onClick={() => handleImageClick(index)}
               >
                 <Card className="overflow-hidden">
                   <img
-                    src={image.url}
-                    alt={`${cosplayer.username} - ${index + 1}`}
+                    src={image.imageUrl}
+                    alt={`${cosplayer.username} - ${image.originalFilename}`}
                     className="w-full h-auto object-cover"
                     loading="lazy"
                   />
@@ -276,9 +308,9 @@ export default function CosplayerGalleryPage() {
                         variant="solid"
                         color="warning"
                         className="bg-red-500/90 hover:bg-red-600"
-                        onPress={() => handleDeleteImage(image.filename)}
-                        isLoading={deletingImages.has(image.filename)}
-                        isDisabled={deletingImages.has(image.filename)}
+                        onPress={() => handleDeleteImage(image.originalFilename)}
+                        isLoading={deletingImages.has(image.originalFilename)}
+                        isDisabled={deletingImages.has(image.originalFilename)}
                       >
                         <TrashIcon className="w-4 h-4" />
                       </Button>
@@ -303,37 +335,50 @@ export default function CosplayerGalleryPage() {
         }}
       >
         <ModalContent className="max-w-none max-h-none w-full h-full bg-transparent">
-          <ModalHeader className="absolute top-4 left-4 z-50">
-            <div className="flex items-center gap-4 text-white">
-              <Button
-                isIconOnly
-                variant="flat"
-                color="default"
-                className="bg-black/50 text-white"
-                onPress={onClose}
-              >
-                <ArrowLeftIcon className="w-5 h-5" />
-              </Button>
-              <div>
-                <p className="font-semibold">{cosplayer.displayName}</p>
-                <p className="text-sm opacity-80">
-                  {currentImageIndex + 1} / {cosplayer.media.length}
-                </p>
+          {/* Header - コントロール表示時のみ表示 */}
+          {showControls && (
+            <ModalHeader className="absolute top-4 left-4 z-50 transition-opacity duration-300">
+              <div className="flex items-center gap-4 text-white">
+                <Button
+                  isIconOnly
+                  variant="flat"
+                  color="default"
+                  className="bg-black/50 text-white hover:bg-black/70"
+                  onPress={onClose}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ArrowLeftIcon className="w-5 h-5" />
+                </Button>
+                <div>
+                  <p className="font-semibold">{cosplayer.displayName}</p>
+                  <p className="text-sm opacity-80">
+                    {currentImageIndex + 1} / {images.length}
+                  </p>
+                </div>
               </div>
-            </div>
-          </ModalHeader>
+            </ModalHeader>
+          )}
 
-          <ModalBody className="p-0 flex items-center justify-center">
-            <div className="relative w-full h-full flex items-center justify-center">
-              {/* Navigation Buttons */}
-              {cosplayer.media.length > 1 && (
+          <ModalBody 
+            className="p-0 flex items-center justify-center overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div 
+              className="relative w-full h-full flex items-center justify-center"
+              onClick={toggleControls}
+            >
+              {/* Navigation Buttons - PC用 & コントロール表示時のみ */}
+              {images.length > 1 && showControls && (
                 <>
                   <Button
                     isIconOnly
                     variant="flat"
                     size="lg"
-                    className="absolute left-4 z-50 bg-black/50 text-white"
+                    className="absolute left-4 z-50 bg-black/50 text-white hover:bg-black/70 transition-all duration-300 hidden md:flex"
                     onPress={handlePrevImage}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <ChevronLeftIcon className="w-6 h-6" />
                   </Button>
@@ -341,52 +386,70 @@ export default function CosplayerGalleryPage() {
                     isIconOnly
                     variant="flat"
                     size="lg"
-                    className="absolute right-4 z-50 bg-black/50 text-white"
+                    className="absolute right-4 z-50 bg-black/50 text-white hover:bg-black/70 transition-all duration-300 hidden md:flex"
                     onPress={handleNextImage}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <ChevronRightIcon className="w-6 h-6" />
                   </Button>
                 </>
               )}
 
-              {/* Main Image */}
-              <img
-                src={cosplayer.media[currentImageIndex]?.url}
-                alt={`${cosplayer.username} - ${currentImageIndex + 1}`}
-                className="max-w-full max-h-full object-contain"
-              />
+              {/* Main Image - PC表示修正 */}
+              <div className="w-full h-full flex items-center justify-center">
+                <img
+                  src={images[currentImageIndex]?.imageUrl}
+                  alt={`${cosplayer.username} - ${images[currentImageIndex]?.originalFilename || currentImageIndex + 1}`}
+                  className="max-w-full max-h-[90vh] w-auto h-auto object-contain select-none"
+                  style={{ maxHeight: 'calc(100vh - 80px)' }}
+                  draggable={false}
+                />
+              </div>
+
+              {/* スワイプヒント - モバイル用 */}
+              {images.length > 1 && showControls && (
+                <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 md:hidden">
+                  <p className="text-white/70 text-sm">← スワイプで画像切り替え →</p>
+                </div>
+              )}
             </div>
           </ModalBody>
 
-          <ModalFooter className="absolute bottom-4 right-4 z-50">
-            <div className="flex gap-2">
-              <Button
-                variant="flat"
-                color="primary"
-                startContent={<DownloadIcon className="w-4 h-4" />}
-                onPress={handleDownloadImage}
-                className="bg-black/50 text-white"
-              >
-                ダウンロード
-              </Button>
-              <Button
-                isIconOnly
-                variant="flat"
-                color="danger"
-                className="bg-black/50 text-white"
-              >
-                <HeartIcon className="w-4 h-4" />
-              </Button>
-              <Button
-                isIconOnly
-                variant="flat"
-                color="primary"
-                className="bg-black/50 text-white"
-              >
-                <BookmarkIcon className="w-4 h-4" />
-              </Button>
-            </div>
-          </ModalFooter>
+          {/* Footer - コントロール表示時のみ表示 */}
+          {showControls && (
+            <ModalFooter className="absolute bottom-4 right-4 z-50 transition-opacity duration-300">
+              <div className="flex gap-2">
+                <Button
+                  variant="flat"
+                  color="primary"
+                  startContent={<DownloadIcon className="w-4 h-4" />}
+                  onPress={handleDownloadImage}
+                  className="bg-black/50 text-white hover:bg-black/70"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  ダウンロード
+                </Button>
+                <Button
+                  isIconOnly
+                  variant="flat"
+                  color="danger"
+                  className="bg-black/50 text-white hover:bg-black/70"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <HeartIcon className="w-4 h-4" />
+                </Button>
+                <Button
+                  isIconOnly
+                  variant="flat"
+                  color="primary"
+                  className="bg-black/50 text-white hover:bg-black/70"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <BookmarkIcon className="w-4 h-4" />
+                </Button>
+              </div>
+            </ModalFooter>
+          )}
         </ModalContent>
       </Modal>
 
@@ -407,7 +470,7 @@ export default function CosplayerGalleryPage() {
               </p>
               <ul className="mt-2 text-xs text-danger-700 list-disc list-inside space-y-1">
                 <li>コスプレイヤーのプロフィール情報</li>
-                <li>ダウンロードされた画像・動画ファイル ({cosplayer.media.length}個)</li>
+                <li>ダウンロードされた画像・動画ファイル ({images.length}個)</li>
                 <li>フォロー状態などの設定</li>
               </ul>
             </div>

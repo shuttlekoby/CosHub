@@ -48,12 +48,22 @@ export async function POST(request: NextRequest) {
 }
 
 // 認証情報を取得
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const getValues = searchParams.get('values') === 'true';
+    
     // まず環境変数をチェック
     const { authToken: envAuthToken, ct0: envCt0 } = getAuthFromEnv();
     
     if (envAuthToken && envCt0) {
+      if (getValues) {
+        return NextResponse.json({
+          auth_token: envAuthToken,
+          ct0: envCt0,
+          source: 'env'
+        });
+      }
       return NextResponse.json({
         hasAuthToken: true,
         hasCt0: true,
@@ -64,6 +74,13 @@ export async function GET() {
 
     // 環境変数がない場合はメモリストレージをチェック
     if (tempAuthStorage) {
+      if (getValues) {
+        return NextResponse.json({
+          auth_token: tempAuthStorage.auth_token,
+          ct0: tempAuthStorage.ct0,
+          source: 'memory'
+        });
+      }
       return NextResponse.json({
         hasAuthToken: !!tempAuthStorage.auth_token,
         hasCt0: !!tempAuthStorage.ct0,

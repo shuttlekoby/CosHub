@@ -236,6 +236,23 @@ export default function CreatePage() {
         const refreshedCosplayers = await getCosplayers();
         setCosplayers(refreshedCosplayers);
       } else {
+        // Vercel環境の制限エラーの特別処理
+        if (data.error === 'VERCEL_LIMITATION') {
+          const vercelErrorStatus: DownloadStatus = {
+            isDownloading: false,
+            progress: 0,
+            message: 'Vercel環境では利用不可',
+            error: `${data.message}\n\n💡 解決方法:\n${data.details.suggestion}\n\n📋 手順:\n${data.details.workaround.join('\n')}`
+          };
+          await updateDownloadStatus(username, vercelErrorStatus);
+          const refreshedCosplayers = await getCosplayers();
+          setCosplayers(refreshedCosplayers);
+          
+          // ユーザーに詳細な説明を表示
+          alert(`🌐 Vercel環境の制限について\n\n${data.details.reason}\n\n💡 ${data.details.suggestion}\n\n📋 推奨手順:\n${data.details.workaround.join('\n')}\n\n📍 ローカル環境: ${data.localUrl}`);
+          return;
+        }
+        
         throw new Error(data.error || 'ダウンロードに失敗しました');
       }
 
@@ -484,6 +501,41 @@ export default function CreatePage() {
     }
   };
 
+  const handleDeleteUser = async (username: string, displayName: string) => {
+    if (!confirm(`${displayName}(@${username})とその関連データを削除しますか？\n\nこの操作は取り消せません。`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/delete-user', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`${displayName}を削除しました：\n- 削除された画像：${result.deletedImages}枚\n- コスプレイヤーデータ：削除済み`);
+        
+        // ローカルストレージからも削除
+        const newCosplayers = cosplayers.filter(c => c.username !== username);
+        setCosplayers(newCosplayers);
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('coshub_cosplayers', JSON.stringify(newCosplayers));
+        }
+      } else {
+        alert(`削除に失敗しました：${result.error}`);
+      }
+    } catch (error) {
+      console.error('削除エラー:', error);
+      alert('削除処理中にエラーが発生しました');
+    }
+  };
+
   const allMedia = filteredCosplayers.flatMap(cosplayer =>
     cosplayer.media.map(media => ({ ...media, cosplayer }))
   );
@@ -715,6 +767,15 @@ export default function CreatePage() {
                       onPress={() => handleEditProfile(cosplayer)}
                     >
                       ✏️ プロフィール編集
+                    </Button>
+
+                    <Button
+                      color="danger"
+                      variant="bordered"
+                      size="sm"
+                      onPress={() => handleDeleteUser(cosplayer.username, cosplayer.displayName)}
+                    >
+                      🗑️ ユーザー削除
                     </Button>
                   </div>
                 </CardBody>

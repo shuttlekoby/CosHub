@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get('username');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = parseInt(searchParams.get('limit') || '1000');
     const offset = parseInt(searchParams.get('offset') || '0');
 
     if (!username) {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     // Sanityから画像データを取得
     const images = await client.fetch(`
-      *[_type == "cosplayerImage" && username == $username] | order(uploadedAt desc) [$offset...$limit] {
+      *[_type == "cosplayerImage" && username == $username] | order(uploadedAt desc) [$offset...($offset + $limit)] {
         _id,
         username,
         originalFilename,
@@ -26,17 +26,27 @@ export async function GET(request: NextRequest) {
         twitterUrl,
         metadata
       }
-    `, { username, offset, limit: offset + limit });
+    `, { username, offset, limit });
 
     // 画像URLを含む形式に変換
     const formattedImages = images.map((image: any) => ({
-      id: image._id,
-      filename: image.originalFilename,
-      url: urlFor(image.imageAsset).url(),
-      thumbnailUrl: urlFor(image.imageAsset).width(300).height(300).fit('crop').url(),
+      _id: image._id,
+      imageAsset: image.imageAsset,
+      originalFilename: image.originalFilename,
       uploadedAt: image.uploadedAt,
-      twitterUrl: image.twitterUrl,
-      metadata: image.metadata
+      metadata: {
+        lqip: image.imageAsset?.metadata?.lqip || '',
+        dimensions: {
+          width: image.metadata?.width || 0,
+          height: image.metadata?.height || 0,
+          aspectRatio: image.metadata?.width && image.metadata?.height 
+            ? image.metadata.width / image.metadata.height 
+            : 1
+        },
+        format: image.metadata?.format || 'jpg',
+        size: image.metadata?.size || 0
+      },
+      imageUrl: urlFor(image.imageAsset).url()
     }));
 
     // 総数を取得
