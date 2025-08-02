@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, readFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
-const AUTH_FILE_PATH = join(process.cwd(), 'data', 'auth.json');
+// Vercel環境では /tmp を使用（一時的だが動作する）
+const AUTH_FILE_PATH = join('/tmp', 'auth.json');
 
 // データディレクトリを作成
 async function ensureDataDirectory() {
   try {
-    await mkdir(join(process.cwd(), 'data'), { recursive: true });
+    await mkdir('/tmp', { recursive: true });
   } catch (error) {
     // ディレクトリが既に存在する場合はエラーを無視
   }
