@@ -1,0 +1,22 @@
+[
+  {
+    "Name": "auth_token",
+    "Value": "a8b6a473dc598de1e8300e4858ecc63139116230",
+    "Domain": ".twitter.com",
+    "Path": "/",
+    "Expires": "2026-07-28T15:00:00.000Z",
+    "HttpOnly": true,
+    "Secure": true,
+    "SameSite": 2
+  },
+  {
+    "Name": "ct0",
+    "Value": "f92065e035952d6140f463a1ddca49a7204e400fc406734ecb44fb14c8c8e1e5a98f6f4d1f4b8b2b129dc1f700508db8d25646d236155380871e64dfce7b2a87fd27225b853f930ae04d2e656dea8817",
+    "Domain": ".twitter.com",
+    "Path": "/",
+    "Expires": "2026-07-28T15:00:00.000Z",
+    "HttpOnly": false,
+    "Secure": true,
+    "SameSite": 2
+  }
+] 

@@ -1,0 +1,42 @@
+[build]
+  # ビルドコマンド
+  command = "npm run build"
+  # 公開ディレクトリ
+  publish = ".next"
+  # 関数のディレクトリ（Next.jsのAPIルートがNetlify Functionsにマップされる）
+  functions = ".netlify/functions"
+
+# Next.jsプラグインを使用（最新版）
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+  [plugins.inputs]
+    # Functionsのサイズ制限を考慮した設定
+    enabled = true
+
+# 開発サーバー設定
+[dev]
+  command = "npm run dev"
+  port = 3000
+
+# ヘッダー設定（vercel.jsonから移行）
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    X-Robots-Tag = "noindex"
+
+# 環境変数の設定（本番環境での環境変数設定後に適用）
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_FLAGS = "--version"
+
+# エラーページの設定
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

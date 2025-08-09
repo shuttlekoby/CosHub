@@ -35,7 +35,6 @@
     "@react-aria/visually-hidden": "3.8.25",
     "@sanity/client": "^7.8.1",
     "@sanity/image-url": "^1.1.0",
-    "@vercel/kv": "^3.0.0",
     "clsx": "2.1.1",
     "framer-motion": "11.18.2",
     "intl-messageformat": "10.7.16",
@@ -45,6 +44,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.12.0",
     "@next/eslint-plugin-next": "15.3.4",
     "@react-types/shared": "3.30.0",
     "@tailwindcss/postcss": "4.1.11",

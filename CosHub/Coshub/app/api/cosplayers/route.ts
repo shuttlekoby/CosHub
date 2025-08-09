@@ -2,15 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-// Vercel KVのフォールバック - ローカル開発時や設定前に使用
-let kv: any;
-try {
-  const kvModule = require('@vercel/kv');
-  kv = kvModule.kv;
-} catch (error) {
-  console.warn('Vercel KV not available, using file-based fallback');
-  kv = null;
-}
+// Netlify対応 - ファイルベースストレージを使用
 
 // コスプレイヤーデータの型定義
 export interface CosplayerData {
@@ -61,7 +53,6 @@ export interface DownloadStatus {
   error?: string;
 }
 
-const COSPLAYERS_KEY = 'coshub:cosplayers';
 const DATA_FILE = path.join(process.cwd(), 'data', 'cosplayers.json');
 
 // フォールバック用のファイルベースストレージ
@@ -91,28 +82,12 @@ async function writeToFile(data: CosplayerData[]): Promise<void> {
 }
 
 async function getData(): Promise<CosplayerData[]> {
-  if (kv) {
-    try {
-      const result = await kv.get(COSPLAYERS_KEY);
-      return (result as CosplayerData[]) || [];
-    } catch (error) {
-      console.warn('KV error, falling back to file:', error);
-      return await readFromFile();
-    }
-  } else {
-    return await readFromFile();
-  }
+  // Netlifyではファイルベースストレージのみ使用
+  return await readFromFile();
 }
 
 async function setData(data: CosplayerData[]): Promise<void> {
-  if (kv) {
-    try {
-      await kv.set(COSPLAYERS_KEY, data);
-      return;
-    } catch (error) {
-      console.warn('KV error, falling back to file:', error);
-    }
-  }
+  // Netlifyではファイルベースストレージのみ使用
   await writeToFile(data);
 }
 
